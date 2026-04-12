@@ -32,11 +32,26 @@
   > **At `endTime`, what percentage of live code lines whose current version was added or modified in `[startTime, endTime]` is attributable to AI generation?**
 
 - The metric is defined on the **live snapshot** at `endTime` — deleted lines do not count, old versions do not count.
-- The metric is **weighted** by `genRatio`, not a binary AI-or-human count.
+- The metric supports **three modes**, controlled by a threshold parameter:
+
+  | Mode | Threshold | Question it answers | Formula (on in-window live lines) |
+  |---|---|---|---|
+  | **Weighted** | N/A | "How much total AI contribution?" | `Sum(genRatio/100) / totalLines` |
+  | **Fully AI** | `genRatio == 100` | "How many lines are fully AI-generated?" | `Count(genRatio == 100) / totalLines` |
+  | **Mostly AI** | `genRatio >= T` (e.g., 60) | "How many lines are mostly AI-generated?" | `Count(genRatio >= T) / totalLines` |
+
+  Example — 10 in-window live lines: 5 lines at genRatio=100, 3 at 80, 1 at 30, 1 at 0:
+
+  | Mode | Result |
+  |---|---|
+  | Weighted | (5×1.0 + 3×0.8 + 1×0.3 + 1×0.0) / 10 = **77%** |
+  | Fully AI (==100) | 5 / 10 = **50%** |
+  | Mostly AI (>=60) | 8 / 10 = **80%** |
+
 - We want a tool named **`aggregateGenCodeDesc`** to compute this metric.
   - Language: **Python** or **C++** or **Rust** — each fork chooses one.
-  - Input: `repoURL + repoBranch + startTime + endTime` + genCodeDesc metadata.
-  - Output: aggregate result in genCodeDesc protocol-shaped JSON.
+  - Input: `repoURL + repoBranch + startTime + endTime + threshold` + genCodeDesc metadata.
+  - Output: aggregate result in genCodeDesc protocol-shaped JSON, including all three mode values.
   - Must support Algorithm A/B/C and Scope A/B/C/D as defined in this BASE.
 - This BASE defines the WHAT & WHY. Each fork implements the WHEN & WHERE & HOW for a specific CodeAgent & LLM.
 
@@ -111,6 +126,24 @@ VCS conditions that affect line attribution and must be handled correctly by any
 | **Corrupted genCodeDesc** | Wrong revisionId or wrong line mappings | Validation rules should catch mismatched `REPOSITORY` fields. Line-level errors are **silent**. |
 | **Duplicate genCodeDesc** | Two records for the same revisionId | Undefined behavior. Aggregator must detect and reject (or pick-last). AlgC is especially fragile — duplicate adds inflate the surviving set. |
 | **Clock skew** | Commit timestamps not monotonically increasing | AlgC sorts by `revisionTimestamp`. Non-monotonic timestamps → wrong accumulation order → wrong surviving set. Git allows arbitrary author dates. |
+
+### Git vs SVN Differences
+
+Most conditions above apply to both Git and SVN, but some differ significantly:
+
+| Condition | Git | SVN | Impact on genCodeDesc |
+|---|---|---|---|
+| **Rename detection** | Heuristic — `git log -M`, `git blame -C`. May miss renames if content changes too much. | Explicit — `svn move` is a first-class operation, always tracked. | Git: fork may need to tune `-M` threshold. SVN: rename is reliable. |
+| **Merge commit** | True merge commit with 2+ parents. `git blame` traces through merge topology correctly. | No merge commits — merge is a regular commit with `svn:mergeinfo` property. `svn blame` may return imprecise results. | Git: authoritative. SVN: treat merge-originated lines with caution. |
+| **Cherry-pick** | `git cherry-pick` creates a new commit. Blame points to the cherry-pick, not the original. | `svn merge -c` — behaves similarly but mergeinfo may confuse blame. | Same conceptually, but SVN blame may attribute to wrong revision. |
+| **Rebase** | `git rebase` replays commits → new revisionIds. All genCodeDesc records must be regenerated. | **Does not exist.** SVN history is immutable. | Git-only condition. SVN forks can ignore. |
+| **Amend / force-push** | `git commit --amend`, `git push --force` rewrite history. Old genCodeDesc is orphaned. | **Impossible.** SVN revisions are immutable once committed. | Git-only condition. SVN forks can ignore. |
+| **Shallow clone** | `git clone --depth N` limits history. Blame hits boundary → wrong origins. | **N/A.** SVN checkouts always have access to full history via server. | Git-only condition. SVN forks can ignore. |
+| **Submodule / subtree** | `git submodule` or `git subtree`. Parent blame doesn't trace into submodule. | `svn:externals` — similar concept, different semantics. Blame stays within each repo. | Both need separate genCodeDesc chains. SVN externals have additional path-resolution complexity. |
+| **Branch model** | Branches are lightweight refs. Branching/merging is cheap and frequent. | Branches are path copies (`/trunk`, `/branches/X`). Branching is heavier. | SVN: `repoBranch` maps to a path, not a ref name. Fork must normalize. |
+| **Blame quality** | `git blame` is highly reliable. `-w` ignores whitespace. `-C -C` detects cross-file moves. | `svn blame` is adequate for basic cases. Merge-heavy histories may return imprecise results. No cross-file move detection. | SVN forks should document reduced blame reliability as a known limitation. |
+| **Revision identity** | SHA-1/SHA-256 hash (40/64 hex chars). Globally unique. | Sequential integer (1, 2, 3...). Unique per repository only. | `revisionId` format differs. Validation rules must handle both. |
+| **Timestamps** | Author date can be set arbitrarily (`GIT_AUTHOR_DATE`). Clock skew is possible. | Server-assigned timestamp. Monotonically increasing (per server). | Git: clock skew is a real risk for AlgC. SVN: timestamps are reliable. |
 
 ### Scale / Performance Conditions
 
