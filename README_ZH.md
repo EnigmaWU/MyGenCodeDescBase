@@ -23,7 +23,7 @@
   - **v26.03** —— 只记 AI 相关的行；blame 信息在分析时从活的 VCS 里现查。
   - **v26.04** —— 增量式 add/delete，内嵌 blame 信息；不用访问 VCS 就能自给自足。
 - 三种算法（A、B、C），回答同一个度量问题，但用不同的方法来发现行的来源。
-- 细节在这里：[README_Protocol_ZH.md](README_Protocol_ZH.md) | [README_AlgABC_ZH.md](README_AlgABC_ZH.md) | [Protocols/](Protocols/)
+- 细节在这里：[README_Protocol_ZH.md](README_Protocol_ZH.md) | [README_AlgABC_ZH.md](README_AlgABC_ZH.md) | [Protocols/](Protocols/) | [README_UserStories.md](README_UserStories.md) | [README_UserGuide_ZH.md](README_UserGuide_ZH.md)
 
 ## ======>>>我们想要什么<<<======
 
