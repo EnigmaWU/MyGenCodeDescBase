@@ -4,65 +4,126 @@
 
 All three algorithms answer the **same question**:
 
-> For the source-code lines that survive in the final repository snapshot at `endTime` and whose current form originated inside `[startTime, endTime]`, how much is attributable to AI?
+> For the in-scope code or document lines that survive in the logical repository snapshot at `endTime`, and whose current text form was introduced by a revision timestamp inside `[startTime, endTime]`, how much is attributable to AI?
 
-The algorithms differ in **how they discover line origins** — not in what they measure.
+The algorithms differ in **how they discover line origins** -- not in what they measure. Scope selection decides whether the result is code-only, document-only, or both; the line-origin rule stays the same.
 
 ---
 
 ## ======>>>ONE-GLANCE COMPARISON<<<======
 
 | | **Algorithm A** | **Algorithm B** | **Algorithm C** |
-|---|---|---|---|
-| **Core technique** | Live `git`/`svn` blame | Offline diff replay | Embedded blame in genCodeDesc |
-| **Repository access at runtime** | Required | Not required | Not required |
+| --- | --- | --- | --- |
+| **Core technique** | Live VCS blame at `endTime` | Ordered offline diff replay | Embedded VCS blame in genCodeDesc |
+| **Repository access at runtime** | Required for blame | Not required if ordered patches and order metadata are supplied | Not required |
 | **genCodeDesc version** | v26.03 | v26.03 | v26.04 |
 | **Needs per-commit diff patch** | No | Yes | No |
-| **Correctness authority** | VCS blame (highest) | Rebuilt partial blame (medium) | codeAgent write-time (trusted) |
+| **Processing order authority** | Live `endTime` snapshot | VCS history order | `REPOSITORY.revisionTimestamp` |
+| **Correctness authority** | Live VCS blame | Rebuilt line lineage from patches | Real VCS blame captured by codeAgent at write time |
 | **Production status** | Production quality | Narrow paths active | Planned |
 
 ---
 
 ## ======>>>ALGORITHM A — Blame-Based End-Snapshot Attribution<<<======
 
-### WHAT It Is
+### A: WHAT It Is
 
-Algorithm A is the **primary, production-quality baseline**. It starts from the live file snapshot at `endTime`, runs `git blame` or `svn blame` on every surviving source line, and uses the blame result to discover which commit last introduced the current form of each line. Lines whose origin commit falls inside `[startTime, endTime]` are in scope. For each in-scope line, it looks up `genRatio` from the matching per-revision genCodeDesc (v26.03) record.
+Algorithm A is the **primary, production-quality baseline**. It starts from the live file snapshot at `endTime`, runs `git blame` or `svn blame` on every surviving in-scope line, and uses the blame result to discover which revision last introduced the current text form of that line. Lines whose origin revision timestamp falls inside `[startTime, endTime]` are counted. For each counted line, it looks up `genRatio` from the matching per-revision genCodeDesc v26.03 record; if the sparse v26.03 `DETAIL` has no matching line entry, the line is treated as manual/unattributed with effective `genRatio=0`.
 
-### WHY It Works
+### A: Flow Diagram
+
+```mermaid
+flowchart TD
+  A1["Inputs: repoUrl, repoBranch, startTime, endTime, genCodeDescDir"]
+  A2["Open live working copy at endTime"]
+  A3["Run git blame or svn blame on surviving in-scope lines"]
+  A4{"Origin timestamp inside [startTime, endTime]?"}
+  A5["Find v26.03 genCodeDesc record by origin revision"]
+  A6{"DETAIL has matching lineLocation or lineRange?"}
+  A7["Use recorded genRatio and genMethod"]
+  A8["Treat as manual/unattributed with genRatio=0"]
+  A9["Aggregate Weighted, Fully AI, and Mostly AI metrics"]
+  A10["Ignore line for this metric window"]
+
+  A1 --> A2 --> A3 --> A4
+  A4 -- "No" --> A10
+  A4 -- "Yes" --> A5 --> A6
+  A6 -- "Yes" --> A7 --> A9
+  A6 -- "No" --> A8 --> A9
+```
+
+### A: WHY It Works
 
 - **Directly answers the P0 metric** on the live snapshot.
-- Rename and move detection is handled by **mature VCS blame implementations**.
+- Rename and move detection is handled by **mature VCS blame implementations** when the selected VCS and options support it.
 - Low logical risk: blame is the **authoritative source** of line origin — no partial reconstruction needed.
 - Works for both Git and SVN.
 
-### Known Pitfalls
+### A: Known Pitfalls
 
-- Requires **live repository access** — a local checkout must be present at runtime.
+- Requires **live repository access** -- a local checkout or equivalent working copy must be present at runtime.
 - Blame performance can be slow on **very large repositories** with many large files.
 - Correctness depends on VCS blame quality — SVN with complex mergeinfo may return imprecise results.
-- One v26.03 file must exist for every origin revision discovered by blame.
+- A v26.03 record must exist for every counted origin revision to produce exact attribution; otherwise the configured missing-record policy applies.
 
 ---
 
 ## ======>>>ALGORITHM B — Incremental Lineage Reconstruction Without Blame<<<======
 
-### WHAT It Is
+### B: WHAT It Is
 
-Algorithm B replays an ordered sequence of **commit diff patches** (`commitDiffSet`) to reconstruct line ownership incrementally. Instead of asking the VCS "who last changed this line?", it simulates the history by applying diffs in order and tracking which commit introduced each surviving line. **No live repository access** is needed at runtime.
+Algorithm B replays an ordered sequence of **per-revision unified-diff patches** from `--commitPatchDir` to reconstruct line ownership incrementally. Instead of asking the VCS "who last changed this line?", it simulates the history by applying diffs in VCS history order and tracking which revision introduced each surviving line. Once a surviving line's origin revision is known, the algorithm looks up `genRatio` from the matching v26.03 genCodeDesc record; if the sparse v26.03 `DETAIL` has no matching line entry, the line is treated as manual/unattributed with effective `genRatio=0`. **No live blame** is needed at runtime; full offline execution requires both the patch files and the commit/revision order metadata to be pre-exported.
 
-### WHY It Exists
+Ordering is part of the correctness contract:
 
-- Enables **offline analysis** without a live repository checkout.
+- Git replay order is parent-before-child topological order on `repoBranch`; commit timestamp may filter the window or break ties, but it must not override parent order.
+- SVN replay order is ascending server revision number after timestamp filtering.
+- Directory iteration order, file name sorting, and patch file modification time are never replay order.
+
+### B: Flow Diagram
+
+```mermaid
+flowchart TD
+  B1["Inputs: genCodeDescDir v26.03 + commitPatchDir"]
+  B2["Build replay sequence from VCS history metadata"]
+  B3{"VCS type?"}
+  B4["Git: parent-before-child topological order"]
+  B5["SVN: ascending server revision number"]
+  B6["Replay each revision patch"]
+  B7["Apply every file diff section and every hunk"]
+  B8["Track origin revision for added, moved, and surviving lines"]
+  B9["Inspect simulated surviving in-scope lines at endTime"]
+  B10{"Origin timestamp inside [startTime, endTime]?"}
+  B11["Find matching v26.03 genCodeDesc record"]
+  B12{"DETAIL has matching lineLocation or lineRange?"}
+  B13["Use recorded genRatio and genMethod"]
+  B14["Treat as manual/unattributed with genRatio=0"]
+  B15["Aggregate metrics"]
+  B16["Ignore line for this metric window"]
+
+  B1 --> B2 --> B3
+  B3 -- "git" --> B4 --> B6
+  B3 -- "svn" --> B5 --> B6
+  B6 --> B7 --> B8 --> B9 --> B10
+  B10 -- "No" --> B16
+  B10 -- "Yes" --> B11 --> B12
+  B12 -- "Yes" --> B13 --> B15
+  B12 -- "No" --> B14 --> B15
+```
+
+### B: WHY It Exists
+
+- Enables **offline analysis** without live blame or network access when patch/order artifacts are already available.
 - Useful when blame is operationally slow or unavailable.
 - Diff artifacts can be **pre-indexed and queried cheaply**.
 - Can compute **history-process metrics** beyond live-snapshot attribution (e.g., added-then-deleted AI lines, churn, survival rate).
 - Enables **deterministic replay** in test environments.
 
-### Known Pitfalls
+### B: Known Pitfalls
 
-- Effectively **rebuilds a partial blame engine** — any gap in replay logic produces wrong attributions silently.
-- One unified-diff patch file per replayed revision must exist before the run. Each patch file is the full commit diff: it can cover multiple files, and each file diff can contain multiple hunks.
+- Effectively **rebuilds a partial blame engine** -- any gap in replay logic produces wrong attributions silently.
+- One unified-diff patch file per replayed revision must exist before the run. Each patch file is the full commit diff: it can cover multiple files, and each file diff can contain multiple hunks. Every file section and every hunk must be replayed.
+- Patch order must come from VCS history metadata, not from the filesystem.
 - Merge-aware lineage replay is **complex** — production readiness for merge-heavy histories requires explicit TDD.
 - SVN path-copy and mergeinfo semantics introduce replay edge cases not yet fully covered.
 - Still needs per-revision genCodeDesc v26.03 — only the blame step is removed.
@@ -71,23 +132,45 @@ Algorithm B replays an ordered sequence of **commit diff patches** (`commitDiffS
 
 ## ======>>>ALGORITHM C — Embedded Blame, Pure genCodeDesc<<<======
 
-### WHAT It Is
+### C: WHAT It Is
 
-Algorithm C is a planned offline algorithm that requires **no repository access** and **no diff artifacts** at runtime. The codeAgent records only the lines added or deleted in each commit, with real VCS blame info per line, into a `genCodeDescProtoV26.04.json` file. Because each add entry carries embedded blame (`revisionId`, `originalFilePath`, `originalLine`, `timestamp`), a downstream consumer can accumulate the full surviving-line set across all files up to `endTime`, apply the `[startTime, endTime]` filter, and read `genRatio` directly.
+Algorithm C is a planned offline algorithm that requires **no repository access** and **no diff artifacts** at runtime. The codeAgent writes one v26.04 genCodeDesc record per revision. Each record contains only changed lines: `changeType=add` entries with `genRatio`, `genMethod`, and real VCS blame, plus `changeType=delete` entries that identify the exact origin line or origin line range to remove. A downstream consumer sorts records by `REPOSITORY.revisionTimestamp`, processes every record with `revisionTimestamp <= endTime`, applies deletes before adds within each record, expands ranges inclusively, and accumulates the surviving-line set. It then filters surviving add entries by embedded `blame.timestamp` inside `[startTime, endTime]` and reads `genRatio` directly.
 
-### WHY It Exists
+### C: Flow Diagram
 
-- **Zero VCS access** at analysis time — no checkout, no subprocess, no network.
-- **Zero diff artifacts** needed — no commitDiffSet.
+```mermaid
+flowchart TD
+  C1["Inputs: genCodeDescDir v26.04"]
+  C2["Sort records by REPOSITORY.revisionTimestamp"]
+  C3["Process every record with revisionTimestamp <= endTime"]
+  C4["Expand lineRange and originalLineRange inclusively"]
+  C5["Apply delete entries first"]
+  C6["Apply add entries to surviving_lines"]
+  C7["Keep surviving add entries after accumulation"]
+  C8{"blame.timestamp inside [startTime, endTime]?"}
+  C9["Read genRatio and genMethod directly from add entry"]
+  C10["Ignore line for this metric window"]
+  C11["Aggregate Weighted, Fully AI, and Mostly AI metrics"]
+
+  C1 --> C2 --> C3 --> C4 --> C5 --> C6 --> C7 --> C8
+  C8 -- "Yes" --> C9 --> C11
+  C8 -- "No" --> C10
+```
+
+### C: WHY It Exists
+
+- **Zero VCS access** at analysis time -- no checkout, no subprocess, no network.
+- **Zero diff artifacts** needed -- no `commitPatchDir`.
 - Small per-commit files: only changed lines are recorded, not the full snapshot.
-- Works for both Git-origin and SVN-origin blame (VCS type is embedded metadata).
+- Works for both Git-origin and SVN-origin blame when the codeAgent captured real VCS blame at write time.
 - Ideal for **air-gapped, edge, or large-scale batch** deployments.
 
-### Known Pitfalls
+### C: Known Pitfalls
 
-- Must process **every commit's file** from the beginning up to `endRevision` — a missing file in the chain corrupts the result.
+- Must process **every v26.04 record** needed to reconstruct the branch state up to `endTime`, including records before `startTime`. A missing record in that chain corrupts the surviving-line set.
 - `REPOSITORY.revisionTimestamp` is **mandatory** for processing order.
-- Delete entries must reference the **exact blame origin** — a mismatch silently leaves ghost lines.
+- Within one record, delete entries are applied before add entries, regardless of array order.
+- Delete entries must reference the **exact blame origin** using `revisionId + originalFilePath + originalLine` or `revisionId + originalFilePath + originalLineRange`; a mismatch silently leaves ghost lines.
 - Embedded blame must be **real VCS blame** captured at write time. Synthetic, inferred, or manually edited blame breaks the contract.
 - No independent VCS verification is possible during analysis — **correctness is fully trusted from the codeAgent**.
 - If a force-push or amend happens after the file was written, the embedded blame is **silently stale**.
@@ -109,11 +192,11 @@ Each algorithm has something the others **cannot substitute**:
 The three algorithms are **semantically equivalent** for the same scenario. The choice is driven by what is available and what trade-offs are acceptable:
 
 | Decision Factor | Choose A | Choose B | Choose C |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Live repo checkout available | Yes | — | — |
 | Need authoritative VCS proof | Yes | — | — |
 | Repo access is expensive/impossible | — | Yes | Yes |
-| Have pre-exported diff patches | — | Yes | — |
+| Have pre-exported diff patches and order metadata | — | Yes | — |
 | Want history-process metrics | — | Yes | — |
 | Want minimal runtime dependencies | — | — | Yes |
 | Air-gapped / edge deployment | — | — | Yes |
@@ -126,7 +209,7 @@ The three algorithms are **semantically equivalent** for the same scenario. The 
 Scores 1–5, higher is better:
 
 | Dimension | Alg A | Alg B | Alg C |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Low Coupling | 2 | 4 | 5 |
 | Low Complexity | 4 | 2 | 3 |
 | Low Storage Footprint | 5 | 2 | 3 |
@@ -145,23 +228,23 @@ Distilled from [AggregateGenCodeDesc — README_IntroAlgABC.md](https://github.c
 
 ## ======>>>APPENDIX: WHAT IS BLAME<<<======
 
-All three algorithms rely on **blame** — the concept that for any line in a file, you can ask: **which revision last introduced this line's current text content?**
+All three algorithms rely on **line origin attribution**, commonly called **blame** -- the concept that for any line in a file, you can ask: **which revision last introduced this line's current text content?**
 
 Blame is **per-line**, not per-commit. In a file with 3 lines, each line may come from a different revision:
 
-```
+```text
 file at commit abc123:
   line 1: "int x = 0;"   → blame: revision 111aaa (3 months ago)
   line 2: "x += 1;"      → blame: revision 222bbb (1 week ago)
   line 3: "return x;"    → blame: revision abc123 (this commit)
 ```
 
-This is why blame naturally handles **rename** (traces through file path changes), **merge** (traces through merged branches), and **rewrite** (points to the newer revision).
+This is why blame can handle **rename** (traces through file path changes when supported/configured), **merge** (follows the VCS blame rules for merged history), and **rewrite** (points to the newer revision that introduced the current text).
 
-How each algorithm gets blame:
+How each algorithm gets line-origin attribution:
 
-| Algorithm | Blame source |
-|---|---|
+| Algorithm | Line-origin source |
+| --- | --- |
 | A | Live `git blame` / `svn blame` at analysis time |
-| B | Reconstructed by replaying diffs (rebuilt partial blame) |
+| B | Reconstructed by replaying ordered diffs (rebuilt partial blame) |
 | C | Embedded in v26.04 at write time by the codeAgent |
