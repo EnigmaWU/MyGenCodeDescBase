@@ -62,7 +62,7 @@ Algorithm B replays an ordered sequence of **commit diff patches** (`commitDiffS
 ### Known Pitfalls
 
 - Effectively **rebuilds a partial blame engine** — any gap in replay logic produces wrong attributions silently.
-- One unified-diff patch file per replayed revision must exist before the run.
+- One unified-diff patch file per replayed revision must exist before the run. Each patch file is the full commit diff: it can cover multiple files, and each file diff can contain multiple hunks.
 - Merge-aware lineage replay is **complex** — production readiness for merge-heavy histories requires explicit TDD.
 - SVN path-copy and mergeinfo semantics introduce replay edge cases not yet fully covered.
 - Still needs per-revision genCodeDesc v26.03 — only the blame step is removed.

@@ -65,6 +65,7 @@ AI_Window_Live_Ratio = Sum(line.genRatio / 100 for live lines whose current orig
 
 - **File**: [Protocols/genCodeDescProtoV26.03.json](Protocols/genCodeDescProtoV26.03.json)
 - **DETAIL model**: records only lines with AI attribution (`genRatio > 0`)
+- **SUMMARY invariant**: `totalCodeLines >= fullGeneratedCodeLines + partialGeneratedCodeLines`; the difference is human/manual lines omitted from `DETAIL` with effective `genRatio=0`.
 - **Used by**: Algorithm A (blame-based) and Algorithm B (diff-replay)
 - **Blame**: NOT embedded — blame is discovered at analysis time from the live VCS
 

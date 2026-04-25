@@ -1,19 +1,28 @@
 {
     "_description": "fromCodeAgent(such as HuayanCoder)_toCodeReviewSystem(such as BugLess)",
+    "_protocolNameSemantics": "generatedTextDesc covers generated source-code text and generated document text, such as c/cxx source files and md document files.",
     "_summarySemantics": {
-        "totalCodeLines": "Count all non-blank added ('+') code lines in the commit diff. Do not include deleted or blank lines.",
+        "totalCodeLines": "Count all non-blank added ('+') code lines in the commit diff, including manual/human-written lines that may be omitted from DETAIL. Do not include deleted or blank lines.",
         "fullGeneratedCodeLines": "Subset of added code lines whose genRatio is 100.",
-        "partialGeneratedCodeLines": "Subset of added code lines whose genRatio is greater than 0 and less than 100."
+        "partialGeneratedCodeLines": "Subset of added code lines whose genRatio is greater than 0 and less than 100.",
+        "generatedCodeLineInvariant": "totalCodeLines >= fullGeneratedCodeLines + partialGeneratedCodeLines. The difference is manual/unattributed code lines with effective genRatio=0.",
+        "generatedDocLineInvariant": "totalDocLines >= fullGeneratedDocLines + partialGeneratedDocLines. The difference is manual/unattributed document lines with effective genRatio=0."
+    },
+    "_detailSemantics": {
+        "model": "SPARSE SNAPSHOT - DETAIL records AI-attributed lines (genRatio > 0). Manual/unattributed lines with effective genRatio=0 may be omitted.",
+        "omittedManualLine": "If a live added line is counted by SUMMARY.totalCodeLines but has no matching lineLocation or lineRange in DETAIL, consumers treat it as genRatio=0 for metrics and may label it Manual/Unattributed if they materialize the omitted line.",
+        "lineLocation": "A 1-based line number in the file content after REPOSITORY.revisionId has been applied.",
+        "lineRange": "A lineRange represents every 1-based line number N where from <= N <= to, and every line in the range shares the same genRatio and genMethod."
     },
 
-    "protocolName": "generatedTextDesc", //Text=Code(c/cxx,...) or Document(md,...)
+    "protocolName": "generatedTextDesc",
     "protocolVersion": "26.03",
     "codeAgent": "HuayanCoder",
 
     "SUMMARY":
     {
         "totalCodeLines": 99,
-        "fullGeneratedCodeLines": 19,
+        "fullGeneratedCodeLines": 8,
         "partialGeneratedCodeLines": 2,
         "totalDocLines": 50,
         "fullGeneratedDocLines": 10,

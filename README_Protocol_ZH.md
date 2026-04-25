@@ -65,6 +65,7 @@ AI_Window_Live_Ratio = Sum(line.genRatio / 100，对所有来源版本在 [start
 
 - **文件**：[Protocols/genCodeDescProtoV26.03.json](Protocols/genCodeDescProtoV26.03.json)
 - **DETAIL 模型**：只记有 AI 归属的行（`genRatio > 0`）
+- **SUMMARY 不变量**：`totalCodeLines >= fullGeneratedCodeLines + partialGeneratedCodeLines`；差值就是从 `DETAIL` 省略的人写/手写行，有效 `genRatio=0`。
 - **用于**：算法 A（基于 blame）和算法 B（diff 回放）
 - **Blame**：没有嵌进来——blame 在分析时从活的 VCS 里现查
 

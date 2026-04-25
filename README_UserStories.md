@@ -84,6 +84,22 @@ Scenario: [Edge] No in-window lines yields zero denominator
   AND totalLines is 0
 ```
 
+### AC-001-7: [Typical] Sparse DETAIL treats omitted lines as manual
+
+```gherkin
+Scenario: [Typical] v26.03 DETAIL omits manual lines while SUMMARY counts them
+  GIVEN SUMMARY.totalCodeLines is 10
+  AND SUMMARY.fullGeneratedCodeLines is 5
+  AND SUMMARY.partialGeneratedCodeLines is 4
+  AND DETAIL contains entries for only the 9 generated lines
+  WHEN aggregateGenCodeDesc validates and computes the aggregate metrics
+  THEN the record is accepted because totalCodeLines >= fullGeneratedCodeLines + partialGeneratedCodeLines
+  AND the omitted in-window live line is treated as genRatio 0 and manual/unattributed
+  AND Weighted is 77.0%
+  AND Fully AI is 50.0%
+  AND Mostly AI is 80.0% when threshold is 60
+```
+
 ---
 
 ## US-002: File-Level Conditions
@@ -406,6 +422,18 @@ Scenario: [Misuse] genRatio is 150 in a genCodeDesc record
   AND no partial data from the invalid record is used
 ```
 
+### AC-006-6: [Typical] Mandatory CLI argument names are lower camel case
+
+```gherkin
+Scenario: [Typical] Mandatory CLI arguments map to runtime and protocol identity
+  GIVEN aggregateGenCodeDesc is invoked with --repoUrl, --repoBranch, --startTime, --endTime, and --genCodeDescDir
+  WHEN the tool parses runtime arguments
+  THEN --repoUrl is used as the requested repository identity and echoed as REPOSITORY.repoURL in the aggregate output
+  AND --repoBranch, --startTime, --endTime, and --genCodeDescDir are used consistently for validation, filtering, and input discovery
+  AND these five lower-camel-case CLI flags are the BASE mandatory contract for argument parsing
+  AND all other CLI flags are optional or as-needed
+```
+
 ---
 
 ## US-007: Git vs SVN Differences
@@ -565,14 +593,17 @@ Scenario: [Fault] Remote VCS is down when AlgA runs blame
 
 ### AlgB — Diff Replay
 
-#### AC-009-4: [Typical] Sequential diff replay in topological order
+#### AC-009-4: [Typical] Sequential multi-file diff replay in topological order
 
 ```gherkin
-Scenario: [Typical] AlgB replays diffs in correct commit order
+Scenario: [Typical] AlgB replays multi-file, multi-hunk diffs in correct commit order
   GIVEN 5 commits (C1→C2→C3→C4→C5) in [startTime, endTime]
-  AND each commit modifies file "main.py"
+  AND at least one commit patch contains diff sections for both "main.py" and "helper.py"
+  AND at least one file diff section contains multiple hunks (`@@ ... @@`)
   WHEN aggregateGenCodeDesc runs AlgB
   THEN diffs are replayed in topological order (C1, C2, C3, C4, C5)
+  AND every file diff section and hunk in each commit patch is replayed
+  AND directory order, filename sorting, and patch file modification time do not control replay order
   AND the final line-to-origin mapping matches the live file state at endTime
 ```
 
@@ -644,14 +675,14 @@ Scenario: [Fault] AlgC detects mismatch between SUMMARY and DETAIL
 ## US-010: Diagnostics and Logging
 
 AS A tool developer,
-I WANT `aggregateGenCodeDesc` to support `--log-level` with levels DEBUG, INFO, WARN, ERROR,
+I WANT `aggregateGenCodeDesc` to support `--logLevel` with levels DEBUG, INFO, WARN, ERROR,
 SO THAT I can inspect runtime behavior and diagnose bugs.
 
 ### AC-010-1: [Typical] Default log level is INFO with load/process/summary phases
 
 ```gherkin
-Scenario: [Typical] Running without --log-level shows INFO progress
-  GIVEN aggregateGenCodeDesc is invoked without --log-level
+Scenario: [Typical] Running without --logLevel shows INFO progress
+  GIVEN aggregateGenCodeDesc is invoked without --logLevel
   AND the tool processes 10 genCodeDesc files covering 5 files
   WHEN the tool runs
   THEN log output shows three phases with progress:
@@ -668,8 +699,8 @@ Scenario: [Typical] Running without --log-level shows INFO progress
 ### AC-010-2: [Typical] DEBUG level shows per-file and per-line detail
 
 ```gherkin
-Scenario: [Typical] --log-level DEBUG reveals detailed processing steps
-  GIVEN aggregateGenCodeDesc is invoked with --log-level DEBUG
+Scenario: [Typical] --logLevel DEBUG reveals detailed processing steps
+  GIVEN aggregateGenCodeDesc is invoked with --logLevel DEBUG
   WHEN the tool processes a genCodeDesc file for commit C1
   THEN log output includes:
     - which algorithm is running (AlgA/B/C)
@@ -706,11 +737,11 @@ Scenario: [Typical] Errors logged when processing must abort
   AND no partial output is written
 ```
 
-### AC-010-5: [Edge] --log-level ERROR suppresses INFO and WARN
+### AC-010-5: [Edge] --logLevel ERROR suppresses INFO and WARN
 
 ```gherkin
-Scenario: [Edge] Minimal output with --log-level ERROR
-  GIVEN aggregateGenCodeDesc is invoked with --log-level ERROR
+Scenario: [Edge] Minimal output with --logLevel ERROR
+  GIVEN aggregateGenCodeDesc is invoked with --logLevel ERROR
   AND processing encounters WARN-level anomalies but no errors
   WHEN the tool completes successfully
   THEN log output contains NO messages (no INFO, no WARN)
@@ -721,7 +752,7 @@ Scenario: [Edge] Minimal output with --log-level ERROR
 
 ```gherkin
 Scenario: [Observability] Log output is structured and parseable
-  GIVEN aggregateGenCodeDesc is invoked with --log-level DEBUG
+  GIVEN aggregateGenCodeDesc is invoked with --logLevel DEBUG
   WHEN log messages are emitted
   THEN each log line includes: timestamp, level, component, message
   AND the format is consistent (e.g., "2026-04-14T10:30:00Z [DEBUG] [AlgC] Loading genCodeDesc revisionId=abc123 entries=1000")
@@ -740,17 +771,17 @@ Scenario: [Testability] Unit tests can set log level programmatically
 
 | US | Title | AC Count | Categories Covered |
 |----|-------|----------|--------------------|
-| US-001 | Core Metric Calculation | 6 | Typical, Edge |
+| US-001 | Core Metric Calculation | 7 | Typical, Edge |
 | US-002 | File-Level Conditions | 4 | Typical, Edge |
 | US-003 | Commit-Level Conditions | 6 | Typical, Edge |
 | US-004 | Line-Level Conditions | 6 | Typical, Edge |
 | US-005 | Branch and History Conditions | 5 | Typical, Edge |
-| US-006 | Destructive and Edge Conditions | 5 | Fault, Misuse |
+| US-006 | Destructive and Edge Conditions | 6 | Fault, Misuse, Typical |
 | US-007 | Git vs SVN Differences | 5 | Typical, Edge |
 | US-008 | Scale and Performance | 4 | Performance, Edge, Robust |
 | US-009 | Algorithm-Specific Behavior | 9 | Typical, Edge, Fault |
 | US-010 | Diagnostics and Logging | 7 | Typical, Edge, Observability, Testability |
-| **Total** | | **57 AC** | |
+| **Total** | | **59 AC** | |
 
 ---
 
@@ -761,7 +792,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 3. **RED** — write a failing test from the GIVEN/WHEN/THEN scenario.
 4. **GREEN** — implement minimal code to pass.
 5. **REFACTOR** — clean up.
-6. When all 57 ACs pass → your implementation is correct per the BASE specification.
+6. When all 59 ACs pass → your implementation is correct per the BASE specification.
 
 > **Not every AC applies to every fork.** Git-only conditions (rebase, amend, shallow clone)
 > can be skipped by SVN forks. AlgC-specific ACs can be skipped by AlgA-only forks.
@@ -773,7 +804,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 
 ### Coverage Scope
 
-All 41 ACs are written **Git-first**. Git is the modern standard and the primary target.
+The ACs are written **Git-first**. Git is the modern standard and the primary target.
 SVN is legacy — supported to the extent that the protocol allows, but with known limitations.
 
 ### VCS Coverage Per AC
@@ -781,7 +812,7 @@ SVN is legacy — supported to the extent that the protocol allows, but with kno
 | AC | Git | SVN | Notes |
 |----|-----|-----|-------|
 | **US-001 (Core Metric)** | | | |
-| AC-001-1 ~ AC-001-6 | ✅ | ✅ | VCS-agnostic — pure math on genRatio values |
+| AC-001-1 ~ AC-001-7 | ✅ | ✅ | VCS-agnostic — pure math on genRatio values and sparse DETAIL semantics |
 | **US-002 (File-Level)** | | | |
 | AC-002-1 ~ AC-002-2 (rename) | ✅ | ✅ | Git: heuristic `-M`. SVN: explicit `svn move` — more reliable |
 | AC-002-3 (delete) | ✅ | ✅ | Same behavior |
@@ -805,6 +836,7 @@ SVN is legacy — supported to the extent that the protocol allows, but with kno
 | AC-006-1 ~ AC-006-3 | ✅ | ✅ | VCS-agnostic — genCodeDesc validation |
 | AC-006-4 (clock skew) | ✅ | ❌ N/A | SVN timestamps are server-assigned, monotonic — no skew risk |
 | AC-006-5 (invalid genRatio) | ✅ | ✅ | VCS-agnostic — input validation |
+| AC-006-6 (CLI arguments) | ✅ | ✅ | VCS-agnostic — CLI parsing |
 | **US-007 (Git vs SVN)** | | | |
 | AC-007-1 ~ AC-007-5 | ✅ | ✅ | Dedicated to documenting differences |
 | **US-008 (Scale/Perf)** | | | |
@@ -825,7 +857,7 @@ SVN is legacy — supported to the extent that the protocol allows, but with kno
 | **AC-009-1 (rename -M)** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-2 (cross-file -C -C)** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-3 (VCS unreachable)** | ✅ | ❌ N/A | ❌ N/A |
-| **AC-009-4 (topological replay)** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-4 (topological multi-file replay)** | ❌ N/A | ✅ | ❌ N/A |
 | **AC-009-5 (chained renames)** | ❌ N/A | ✅ | ❌ N/A |
 | **AC-009-6 (missing diff)** | ❌ N/A | ✅ | ❌ N/A |
 | **AC-009-7 (surviving set)** | ❌ N/A | ❌ N/A | ✅ |

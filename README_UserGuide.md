@@ -23,23 +23,19 @@ The tool is invoked by a **codebase maintainer** who wants to measure how much A
 
 ## 2. Inputs
 
-### 2.1 Required arguments
+### 2.1 Mandatory arguments
 
-Every fork must accept the following inputs (exact CLI flag names are fork-defined):
+Every fork must accept the following mandatory CLI arguments. Argument names use lower camel case after the `--` prefix.
 
-| Argument | Meaning |
-|---|---|
-| `repo-url` | Git or SVN repository URL. For local mode, a filesystem path or `file://` URL. |
-| `repo-branch` | Git branch name, or SVN path (e.g. `trunk`, `branches/rel-1.0`). |
-| `start-time` | Window start, inclusive (ISO 8601: `2026-01-01T00:00:00Z`). |
-| `end-time` | Window end, inclusive (ISO 8601). |
-| `threshold` | Integer 0..100. Used by the *Mostly AI* mode. |
-| `algorithm` | Line-origin discovery strategy: `A`, `B`, or `C` (see [README_AlgABC.md](README_AlgABC.md)). |
-| `scope` | File/path filter: `A`, `B`, `C`, or `D` (see [README_Protocol.md](README_Protocol.md) — Scope Definitions). |
-| `gen-code-desc-dir` | Directory containing the sequence of genCodeDesc JSON files for this window. See §2.2. |
-| `output-dir` | Directory where output artifacts are written (created if missing). See §3. |
+| CLI argument | Meaning |
+| --- | --- |
+| `--repoUrl` | Git or SVN repository URL. For local mode, a filesystem path or `file://` URL. Maps to protocol field `REPOSITORY.repoURL`. |
+| `--repoBranch` | Git branch name, or SVN path (e.g. `trunk`, `branches/rel-1.0`). |
+| `--startTime` | Window start, inclusive (ISO 8601: `2026-01-01T00:00:00Z`). |
+| `--endTime` | Window end, inclusive (ISO 8601). |
+| `--genCodeDescDir` | Directory containing the sequence of genCodeDesc JSON files for this window. See §2.2. |
 
-### 2.2 `gen-code-desc-dir` contract
+### 2.2 `--genCodeDescDir` contract
 
 The directory contains **a sequence of genCodeDesc JSON files**, one per revision, covering `[startTime, endTime]` on `repoBranch`.
 
@@ -61,32 +57,41 @@ The directory contains **a sequence of genCodeDesc JSON files**, one per revisio
 - **Duplicate revisionId policy** — configurable: `reject` (default) or `last-wins`.
 - **Clock-skew policy** (Alg C only) — non-monotonic `revisionTimestamp` configurable: `abort` or `ignore`.
 
-### 2.3 Optional arguments
+### 2.3 Optional and as-needed arguments
 
-| Argument | Default | Meaning |
-|---|---|---|
-| `repo-path` | none | **Alg A only.** Path to a local working copy of the repository. Required for Alg A git/svn. If not given and `repo-url` is remote, the fork may auto-clone. |
-| `end-rev` | `HEAD` | **Alg A only.** Revision to blame at. |
-| `commit-patch-dir` | none | **Alg B only.** Directory holding per-revision unified diff files for offline replay. See §2.4. |
-| `blame-whitespace` | `respect` | **Alg A, Git only.** `respect` or `ignore` (cf. `git blame -w`). See AC-004-3. |
-| `rename-detection` | `basic` | **Alg A/B, Git only.** `off` / `basic` (`-M`) / `aggressive` (`-M -C -C`). |
-| `log-level` | `Info` | Stderr logging verbosity: `Debug`, `Info`, `Warning`, `Error`. See §2.5. |
-| `on-missing` | Alg-dependent | Missing genCodeDesc policy. See §2.2. |
-| `on-duplicate` | `reject` | Duplicate revisionId policy. See §2.2. |
-| `on-clock-skew` | `abort` | Clock skew policy for Alg C. See §2.2. |
+All other CLI arguments are optional, or are used only when the selected mode, algorithm, scope, output behavior, or validation policy needs them.
 
-Protocol version is auto-detected from the first file in `gen-code-desc-dir`; all files must share that version.
+| CLI argument | Default / when needed | Meaning |
+| --- | --- | --- |
+| `--threshold` | As needed | Integer 0..100. Used by the *Mostly AI* mode. |
+| `--algorithm` | As needed | Line-origin discovery strategy: `A`, `B`, or `C` (see [README_AlgABC.md](README_AlgABC.md)). |
+| `--scope` | As needed | File/path filter: `A`, `B`, `C`, or `D` (see [README_Protocol.md](README_Protocol.md) — Scope Definitions). |
+| `--outputDir` | As needed | Directory where output artifacts are written (created if missing). See §3. |
+| `--repoPath` | none | **Alg A only.** Path to a local working copy of the repository. Needed for Alg A git/svn. If not given and `--repoUrl` is remote, the fork may auto-clone. |
+| `--endRev` | `HEAD` | **Alg A only.** Revision to blame at. |
+| `--commitPatchDir` | none | **Alg B only.** Directory holding per-revision unified diff files for offline replay. See §2.4. |
+| `--blameWhitespace` | `respect` | **Alg A, Git only.** `respect` or `ignore` (cf. `git blame -w`). See AC-004-3. |
+| `--renameDetection` | `basic` | **Alg A/B, Git only.** `off` / `basic` (`-M`) / `aggressive` (`-M -C -C`). |
+| `--logLevel` | `Info` | Stderr logging verbosity: `Debug`, `Info`, `Warning`, `Error`. See §2.5. |
+| `--onMissing` | Alg-dependent | Missing genCodeDesc policy. See §2.2. |
+| `--onDuplicate` | `reject` | Duplicate revisionId policy. See §2.2. |
+| `--onClockSkew` | `abort` | Clock skew policy for Alg C. See §2.2. |
 
-### 2.4 `commit-patch-dir` contract (Alg B)
+Protocol version is auto-detected from the first file in `genCodeDescDir`; all files must share that version.
+
+### 2.4 `--commitPatchDir` contract (Alg B)
 
 - **Only consumed by Alg B.** Ignored (with a warning) by Alg A and Alg C.
 - One file per revision in `[startTime, endTime]`, named `<revisionId>.patch`, covering that revision's full change set against its parent on `repoBranch`.
+- A single `<revisionId>.patch` may contain multiple file diff sections, and each file diff section may contain multiple hunks (`@@ ... @@`). Alg B must replay every file section and every hunk in the patch.
 - The directory is scanned for `*.patch` files.
-- Ordering: Alg B replays in the repo's topological/parent order; the file names map revisions to diffs, not to a sort key.
-- Missing revisions fall under `on-missing`; duplicates under `on-duplicate`.
+- Ordering: Alg B builds the patch replay sequence from VCS history metadata, not from directory iteration, file modification time, or filename sorting.
+  - Git: replay commits in parent-before-child topological order on `repoBranch`. Commit time is used to select the `[startTime, endTime]` window and may be used as a deterministic tie-breaker, but it must not override parent order.
+  - SVN: replay revisions on `repoBranch` by ascending server revision number, after filtering revisions by server timestamp in `[startTime, endTime]`.
+- Missing revisions fall under `--onMissing`; duplicates under `--onDuplicate`.
 - Makes Alg B reproducible and network-free once this directory is populated.
 
-### 2.5 `log-level` semantics
+### 2.5 `--logLevel` semantics
 
 | Level | What is logged |
 |---|---|
@@ -99,7 +104,7 @@ Protocol version is auto-detected from the first file in `gen-code-desc-dir`; al
 
 ## 3. Output
 
-`output-dir` receives **two artifacts**:
+`outputDir` receives **two artifacts**:
 
 | File (fixed name) | What it is |
 |---|---|
@@ -116,16 +121,16 @@ Mapping from metric to protocol fields:
 
 | Protocol field | Aggregate meaning |
 |---|---|
-| `protocolVersion` | `"26.03"` (the output envelope version; independent of the input `gen-code-desc-dir` version). |
-| `codeAgent` | `"aggregateGenCodeDesc"`. |
+| `protocolVersion` | `"26.03"` (the output envelope version; independent of the input `genCodeDescDir` version). |
+| `codeAgent` | `"myCodeAgentName"`. |
 | `REPOSITORY.repoURL` / `repoBranch` | Echoed from input arguments. |
 | `REPOSITORY.revisionId` | `"aggregate:<startTime>..<endTime>"` — a synthetic id identifying the window. |
-| `SUMMARY.totalCodeLines` | Denominator — count of in-window live code lines. |
+| `SUMMARY.totalCodeLines` | Denominator — count of all in-window live code lines, including manual/unattributed lines that may be omitted from `DETAIL`. |
 | `SUMMARY.fullGeneratedCodeLines` | Count of lines with `genRatio == 100` (numerator of *Fully AI*). |
 | `SUMMARY.partialGeneratedCodeLines` | Count of lines with `0 < genRatio < 100`. |
-| `SUMMARY.totalDocLines` / `fullGeneratedDocLines` / `partialGeneratedDocLines` | Same, restricted to doc files (Scope C/D). |
-| `DETAIL[].fileName` | Each in-window live file. |
-| `DETAIL[].codeLines[]` / `docLines[]` | Per-line `{lineLocation, genRatio, genMethod}` (or `lineRange` when contiguous), copied from the origin revision's genCodeDesc. |
+| `SUMMARY.totalDocLines` / `fullGeneratedDocLines` / `partialGeneratedDocLines` | Same, restricted to doc files (Scope C/D). For code and doc counts, `total >= fullGenerated + partialGenerated`; the difference is manual/unattributed lines with effective `genRatio=0`. |
+| `DETAIL[].fileName` | Each in-window live file that has emitted attribution entries. Files with only omitted manual/unattributed lines may be absent. |
+| `DETAIL[].codeLines[]` / `docLines[]` | Sparse v26.03 attribution entries. Lines with `genRatio > 0` are emitted as `{lineLocation, genRatio, genMethod}` (or `lineRange` when contiguous). Manual/unattributed lines may be omitted; absence means effective `genRatio=0`. |
 
 **Aggregate-only extensions** (added as sibling top-level keys; ignored by vanilla v26.03 consumers):
 
@@ -138,7 +143,7 @@ Mapping from metric to protocol fields:
 | `AGGREGATE.metrics.mostlyAI` | `{value, numerator, threshold}` — `count(genRatio >= T) / totalCodeLines`. |
 | `AGGREGATE.diagnostics` | `{missingRevisions[], duplicateRevisions[], clockSkewDetected, warnings[]}`. |
 
-Example (10 in-window live code lines, `genRatio = [100,100,100,100,100, 80,80,80, 30, 0]`, threshold 60):
+Example (10 in-window live code lines, generated `genRatio = [100,100,100,100,100, 80,80,80, 30]`, plus one omitted manual line with effective `genRatio=0`, threshold 60):
 
 ```json
 {
@@ -161,8 +166,7 @@ Example (10 in-window live code lines, `genRatio = [100,100,100,100,100, 80,80,8
       "codeLines": [
         {"lineRange": {"from": 1, "to": 5}, "genRatio": 100, "genMethod": "codeCompletion"},
         {"lineRange": {"from": 6, "to": 8}, "genRatio":  80, "genMethod": "vibeCoding"},
-        {"lineLocation": 9,                 "genRatio":  30, "genMethod": "vibeCoding"},
-        {"lineLocation": 10,                "genRatio":   0, "genMethod": "Manual"}
+        {"lineLocation": 9,                 "genRatio":  30, "genMethod": "vibeCoding"}
       ]
     }
   ],
@@ -217,7 +221,7 @@ git diff <revJustBeforeStartTime>..<revAtEndTime> -- <scope paths>
   | Algorithm | How the patch is produced |
   |---|---|
   | A | Produced via `git diff` / `svn diff` on the working copy or remote endpoint. |
-  | B | Concatenation of the per-revision patches from `commit-patch-dir` in topological/parent order, separated by `# --- commit <rev> ---` markers. |
+  | B | Concatenation of the per-revision patches from `commitPatchDir` in topological/parent order, separated by `# --- commit <rev> ---` markers. |
   | C | Synthesised from the v26.04 embedded add-line entries: one synthetic `+` per in-window surviving add, serialised as a unified-diff-shaped document. No VCS access required. |
 
 - **Purpose**: pairs with the JSON — JSON answers *"what ratio?"*, the patch answers *"which lines were counted?"*, so the pair is auditable without re-accessing the repo.
@@ -235,44 +239,44 @@ The cells below describe prerequisites, a minimal example command shape, and kno
 
 #### git · local · A (live blame)
 
-- **Prereqs**: working copy on disk; `git` on PATH; `gen-code-desc-dir` is v26.03.
+- **Prereqs**: working copy on disk; `git` on PATH; `genCodeDescDir` is v26.03.
 - **Example shape**:
   ```
   aggregateGenCodeDesc \
-    --repo-url file:///srv/repos/foo \
-    --repo-branch main \
-    --start-time 2026-01-01T00:00:00Z --end-time 2026-04-01T00:00:00Z \
+    --repoUrl file:///srv/repos/foo \
+    --repoBranch main \
+    --startTime 2026-01-01T00:00:00Z --endTime 2026-04-01T00:00:00Z \
     --threshold 60 --algorithm A --scope A \
-    --gen-code-desc-dir ./gcd/ \
-    --output-dir ./out/
+    --genCodeDescDir ./gcd/ \
+    --outputDir ./out/
   ```
 - **Limits**: shallow clone invalidates blame (AC-005-4).
 
 #### git · local · B (offline diff replay)
 
-- **Prereqs**: working copy with full object DB in window; `commit-patch-dir` populated.
+- **Prereqs**: working copy with full object DB in window; `commitPatchDir` populated.
 - **Limits**: deep rename chains inflate state (README scale table).
 
 #### git · local · C (embedded blame, v26.04 only)
 
-- **Prereqs**: **no VCS access needed** — `repo-url` / `repo-branch` are used for validation only. `gen-code-desc-dir` must contain v26.04.
+- **Prereqs**: **no VCS access needed** — `repoUrl` / `repoBranch` are used for validation only. `genCodeDescDir` must contain v26.04.
 - **Limits**: trust shifts fully to codeAgent write-time correctness.
 
 ### 4.2 git × remote
 
 #### git · remote · A
 
-- **Prereqs**: caller must either clone the remote ahead of time (passing path via `repo-path`) or the fork auto-clones to a working directory. The tool itself should not require the caller to know VCS internals.
+- **Prereqs**: caller must either clone the remote ahead of time (passing path via `--repoPath`) or the fork auto-clones to a working directory. The tool itself should not require the caller to know VCS internals.
 - **Limits**: shallow clones invalidate blame (AC-005-4).
 
 #### git · remote · B
 
-- **Prereqs**: caller supplies pre-computed per-revision patches in `commit-patch-dir`. The tool never fetches from the remote directly.
+- **Prereqs**: caller supplies pre-computed per-revision patches in `commitPatchDir`. The tool never fetches from the remote directly.
 - **Limits**: patch preparation is the caller's responsibility.
 
 #### git · remote · C
 
-- **Prereqs**: **no network access to the repo**. Pass `repo-url`/`repo-branch` only so the result JSON is self-identifying.
+- **Prereqs**: **no network access to the repo**. Pass `repoUrl`/`repoBranch` only so the result JSON is self-identifying.
 - **Recommended** for air-gapped / batch scenarios.
 
 ### 4.3 svn × local
@@ -295,12 +299,12 @@ The cells below describe prerequisites, a minimal example command shape, and kno
 
 #### svn · remote · A
 
-- **Prereqs**: caller pre-checks-out the svn working copy. `repo-branch` must be the SVN path (e.g. `trunk`).
+- **Prereqs**: caller pre-checks-out the svn working copy. `repoBranch` must be the SVN path (e.g. `trunk`).
 - **Limits**: the tool should not contact the svn server directly.
 
 #### svn · remote · B
 
-- **Prereqs**: caller supplies pre-computed per-revision patches in `commit-patch-dir`.
+- **Prereqs**: caller supplies pre-computed per-revision patches in `commitPatchDir`.
 - **Limits**: patch preparation is the caller's responsibility.
 
 #### svn · remote · C
@@ -332,10 +336,10 @@ Mapped to [README_UserStories.md](README_UserStories.md) US-006:
 
 | Condition | Flag | Default | Exit |
 |---|---|---|---|
-| Missing genCodeDesc for a revision in window | `on-missing` | `zero` (A/B), `abort` (C) | 0 (ZERO/SKIP) / 2 (ABORT) |
+| Missing genCodeDesc for a revision in window | `--onMissing` | `zero` (A/B), `abort` (C) | 0 (ZERO/SKIP) / 2 (ABORT) |
 | `REPOSITORY` mismatch in a file | — | always reject | 2 |
-| Duplicate `revisionId` | `on-duplicate` | `reject` | 2 (REJECT) / 0 (LAST-WINS) |
-| Non-monotonic `revisionTimestamp` (Alg C) | `on-clock-skew` | `abort` | 2 (ABORT) / 0 (IGNORE) |
+| Duplicate `revisionId` | `--onDuplicate` | `reject` | 2 (REJECT) / 0 (LAST-WINS) |
+| Non-monotonic `revisionTimestamp` (Alg C) | `--onClockSkew` | `abort` | 2 (ABORT) / 0 (IGNORE) |
 | `genRatio` outside 0..100 | — | always reject | 2 |
 | Mixed protocol versions in dir | — | always reject | 2 |
 | Alg C given v26.03, or Alg A/B given v26.04 | — | always reject | 2 |
@@ -358,43 +362,43 @@ Mapped to [README_UserStories.md](README_UserStories.md) US-006:
 
 ```text
 aggregateGenCodeDesc \
-  --repo-url https://github.com/acme/myrepo \
-  --repo-branch main \
-  --start-time 2026-01-01T00:00:00Z \
-  --end-time 2026-04-01T00:00:00Z \
+  --repoUrl https://github.com/acme/myrepo \
+  --repoBranch main \
+  --startTime 2026-01-01T00:00:00Z \
+  --endTime 2026-04-01T00:00:00Z \
   --threshold 60 \
   --algorithm A --scope A \
-  --gen-code-desc-dir ./gcd-v26.03/ \
-  --output-dir ./out/
+  --genCodeDescDir ./gcd-v26.03/ \
+  --outputDir ./out/
 ```
 
 ### Algorithm B: Offline Diff Replay (Git or SVN)
 
 ```text
 aggregateGenCodeDesc \
-  --repo-url https://svn.example.com/repo \
-  --repo-branch /trunk \
-  --start-time 2026-02-01T00:00:00Z \
-  --end-time 2026-02-28T23:59:59Z \
+  --repoUrl https://svn.example.com/repo \
+  --repoBranch /trunk \
+  --startTime 2026-02-01T00:00:00Z \
+  --endTime 2026-02-28T23:59:59Z \
   --threshold 60 \
   --algorithm B --scope A \
-  --gen-code-desc-dir ./gcd-v26.03/ \
-  --commit-patch-dir ./diffs/ \
-  --output-dir ./out/
+  --genCodeDescDir ./gcd-v26.03/ \
+  --commitPatchDir ./diffs/ \
+  --outputDir ./out/
 ```
 
 ### Algorithm C: Embedded Blame (v26.04 only, no VCS access)
 
 ```text
 aggregateGenCodeDesc \
-  --repo-url https://github.com/acme/myrepo \
-  --repo-branch main \
-  --start-time 2026-01-01T00:00:00Z \
-  --end-time 2026-04-01T00:00:00Z \
+  --repoUrl https://github.com/acme/myrepo \
+  --repoBranch main \
+  --startTime 2026-01-01T00:00:00Z \
+  --endTime 2026-04-01T00:00:00Z \
   --threshold 60 \
   --algorithm C --scope A \
-  --gen-code-desc-dir ./gcd-v26.04/ \
-  --output-dir ./out/
+  --genCodeDescDir ./gcd-v26.04/ \
+  --outputDir ./out/
 ```
 
 ---
@@ -404,8 +408,8 @@ aggregateGenCodeDesc \
 1. Fork `MyGenCodeDescBase` for a specific CodeAgent & LLM combination.
 2. Implement `aggregateGenCodeDesc` in your chosen language (Python / C++ / Rust).
 3. Your fork's `README.md` references this guide and documents:
-   - Exact CLI flag names used (may differ from argument names above).
-   - Which of the 12 cells are supported (all 12 is the target; AlgC-only forks may skip cells 1–2, 7–8).
-   - Known limitations per cell (e.g. "Alg B is not yet implemented").
-   - Policy defaults for `on-missing`, `on-duplicate`, `on-clock-skew`.
-4. All 57 acceptance criteria in [README_UserStories.md](README_UserStories.md) are test targets.
+    - Any additional compatibility flags beyond the mandatory lower-camel-case CLI flags above.
+    - Which of the 12 cells are supported (all 12 is the target; AlgC-only forks may skip cells 1–2, 7–8).
+    - Known limitations per cell (e.g. "Alg B is not yet implemented").
+    - Policy defaults for `--onMissing`, `--onDuplicate`, `--onClockSkew`.
+4. All 59 acceptance criteria in [README_UserStories.md](README_UserStories.md) are test targets.

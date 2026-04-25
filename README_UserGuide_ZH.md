@@ -23,23 +23,19 @@
 
 ## 2. 输入
 
-### 2.1 必填参数
+### 2.1 强制参数
 
-每个 fork 必须接受以下输入（具体 CLI 参数名由各 fork 自定义）：
+每个 fork 必须接受以下强制 CLI 参数。参数名在 `--` 前缀之后使用 lower camel case。
 
-| 参数 | 含义 |
-|---|---|
-| `repo-url` | Git 或 SVN 仓库 URL。本地模式下传本地路径或 `file://` URL。 |
-| `repo-branch` | Git 分支名，或 SVN 路径（如 `trunk`、`branches/rel-1.0`）。 |
-| `start-time` | 窗口开始时间，包含（ISO 8601：`2026-01-01T00:00:00Z`）。 |
-| `end-time` | 窗口结束时间，包含（ISO 8601）。 |
-| `threshold` | 0..100 的整数，*主要 AI* 模式用。 |
-| `algorithm` | 行来源发现策略：`A`、`B` 或 `C`（见 [README_AlgABC_ZH.md](README_AlgABC_ZH.md)）。 |
-| `scope` | 文件/路径过滤：`A`、`B`、`C` 或 `D`（见 [README_Protocol_ZH.md](README_Protocol_ZH.md) — 范围定义）。 |
-| `gen-code-desc-dir` | 本次窗口对应的 genCodeDesc JSON 文件序列所在目录，见 §2.2。 |
-| `output-dir` | 两个输出产物写到的目录（不存在就新建），见 §3。 |
+| CLI 参数 | 含义 |
+| --- | --- |
+| `--repoUrl` | Git 或 SVN 仓库 URL。本地模式下传本地路径或 `file://` URL。映射到协议字段 `REPOSITORY.repoURL`。 |
+| `--repoBranch` | Git 分支名，或 SVN 路径（如 `trunk`、`branches/rel-1.0`）。 |
+| `--startTime` | 窗口开始时间，包含（ISO 8601：`2026-01-01T00:00:00Z`）。 |
+| `--endTime` | 窗口结束时间，包含（ISO 8601）。 |
+| `--genCodeDescDir` | 本次窗口对应的 genCodeDesc JSON 文件序列所在目录，见 §2.2。 |
 
-### 2.2 `gen-code-desc-dir` 约定
+### 2.2 `--genCodeDescDir` 约定
 
 这个目录里放的是**一个 genCodeDesc JSON 文件序列**，每次版本一个文件，覆盖 `repoBranch` 上 `[startTime, endTime]` 这段窗口。
 
@@ -61,32 +57,41 @@
 - **重复 revisionId 策略**：可配置 `reject`（默认）或 `last-wins`。
 - **时钟漂移策略**（仅 Alg C）：`revisionTimestamp` 非单调时，可配置 `abort` 或 `ignore`。
 
-### 2.3 可选参数
+### 2.3 可选和按需参数
 
-| 参数 | 默认 | 含义 |
-|---|---|---|
-| `repo-path` | 无 | **仅 Alg A。** 本地仓库工作副本路径。Alg A 跑 git/svn 时必须有。若没提供且 `repo-url` 是远端，fork 可自动克隆。 |
-| `end-rev` | `HEAD` | **仅 Alg A。** 执行 blame 时的目标 revision。 |
-| `commit-patch-dir` | 无 | **仅 Alg B。** 预先算好的每个 revision 的 unified diff 文件放这里，用于离线重放，见 §2.4。 |
-| `blame-whitespace` | `respect` | **仅 Alg A + Git。** `respect` 或 `ignore`（对应 `git blame -w`），见 AC-004-3。 |
-| `rename-detection` | `basic` | **仅 Git + Alg A/B。** `off` / `basic`（`-M`）/ `aggressive`（`-M -C -C`）。 |
-| `log-level` | `Info` | stderr 日志详细程度：`Debug` / `Info` / `Warning` / `Error`，见 §2.5。 |
-| `on-missing` | 算法相关 | 缺失 genCodeDesc 的处理策略，见 §2.2。 |
-| `on-duplicate` | `reject` | 重复 revisionId 的处理策略，见 §2.2。 |
-| `on-clock-skew` | `abort` | 仅 Alg C 的时钟漂移处理策略，见 §2.2。 |
+其他所有 CLI 参数都是可选参数，或仅在所选模式、算法、范围、输出行为、校验策略需要时才使用。
 
-协议版本从 `gen-code-desc-dir` 第一个文件自动检测；所有文件必须版本一致。
+| CLI 参数 | 默认 / 何时需要 | 含义 |
+| --- | --- | --- |
+| `--threshold` | 按需 | 0..100 的整数，*主要 AI* 模式用。 |
+| `--algorithm` | 按需 | 行来源发现策略：`A`、`B` 或 `C`（见 [README_AlgABC_ZH.md](README_AlgABC_ZH.md)）。 |
+| `--scope` | 按需 | 文件/路径过滤：`A`、`B`、`C` 或 `D`（见 [README_Protocol_ZH.md](README_Protocol_ZH.md) — 范围定义）。 |
+| `--outputDir` | 按需 | 两个输出产物写到的目录（不存在就新建），见 §3。 |
+| `--repoPath` | 无 | **仅 Alg A。** 本地仓库工作副本路径。Alg A 跑 git/svn 时需要。若没提供且 `--repoUrl` 是远端，fork 可自动克隆。 |
+| `--endRev` | `HEAD` | **仅 Alg A。** 执行 blame 时的目标 revision。 |
+| `--commitPatchDir` | 无 | **仅 Alg B。** 预先算好的每个 revision 的 unified diff 文件放这里，用于离线重放，见 §2.4。 |
+| `--blameWhitespace` | `respect` | **仅 Alg A + Git。** `respect` 或 `ignore`（对应 `git blame -w`），见 AC-004-3。 |
+| `--renameDetection` | `basic` | **仅 Git + Alg A/B。** `off` / `basic`（`-M`）/ `aggressive`（`-M -C -C`）。 |
+| `--logLevel` | `Info` | stderr 日志详细程度：`Debug` / `Info` / `Warning` / `Error`，见 §2.5。 |
+| `--onMissing` | 算法相关 | 缺失 genCodeDesc 的处理策略，见 §2.2。 |
+| `--onDuplicate` | `reject` | 重复 revisionId 的处理策略，见 §2.2。 |
+| `--onClockSkew` | `abort` | 仅 Alg C 的时钟漂移处理策略，见 §2.2。 |
 
-### 2.4 `commit-patch-dir` 约定（Alg B）
+协议版本从 `genCodeDescDir` 第一个文件自动检测；所有文件必须版本一致。
+
+### 2.4 `--commitPatchDir` 约定（Alg B）
 
 - **只有 Alg B 会消费这个目录。** Alg A、Alg C 会直接忽略（带一条 warning）。
 - 窗口 `[startTime, endTime]` 内每个 revision 一个文件，命名为 `<revisionId>.patch`，覆盖该 revision 相对于其在 `repoBranch` 上父提交的完整变更。
+- 单个 `<revisionId>.patch` 可以包含多个文件 diff 区块；每个文件 diff 区块又可以包含多个 hunk（`@@ ... @@`）。Alg B 必须重放 patch 里的每个文件区块和每个 hunk。
 - 目录里扫 `*.patch` 文件。
-- 顺序：Alg B 按仓库自己的拓扑/父子顺序重放；文件名只是 revision → diff 的映射，不是排序键。
-- 缺 revision 走 `on-missing`；重复走 `on-duplicate`。
+- 顺序：Alg B 从 VCS 历史元数据生成 patch 重放序列，不按目录遍历顺序、文件修改时间或文件名排序。
+  - Git：在 `repoBranch` 上按父提交先于子提交的拓扑顺序重放。提交时间用于筛选 `[startTime, endTime]` 窗口，也可以作为确定性 tie-breaker，但不能覆盖父子拓扑顺序。
+  - SVN：先用服务器时间戳筛选 `[startTime, endTime]` 内的 revision，再按服务器 revision number 升序重放。
+- 缺 revision 走 `--onMissing`；重复走 `--onDuplicate`。
 - 这个目录填好之后，Alg B 就可复现、不联网。
 
-### 2.5 `log-level` 语义
+### 2.5 `--logLevel` 语义
 
 | 档位 | 打什么 |
 |---|---|
@@ -99,7 +104,7 @@
 
 ## 3. 输出
 
-`output-dir` 里会放 **两个产物**：
+`outputDir` 里会放 **两个产物**：
 
 | 文件（固定名称） | 是什么 |
 |---|---|
@@ -116,16 +121,16 @@
 
 | 协议字段 | 聚合含义 |
 |---|---|
-| `protocolVersion` | `"26.03"`（输出信封的版本，跟输入 `gen-code-desc-dir` 的版本无关）。 |
+| `protocolVersion` | `"26.03"`（输出信封的版本，跟输入 `genCodeDescDir` 的版本无关）。 |
 | `codeAgent` | `"aggregateGenCodeDesc"`。 |
 | `REPOSITORY.repoURL` / `repoBranch` | 原样抄自输入参数。 |
 | `REPOSITORY.revisionId` | `"aggregate:<startTime>..<endTime>"` — 标识窗口的合成 id。 |
-| `SUMMARY.totalCodeLines` | 分母——窗口内活代码行数。 |
+| `SUMMARY.totalCodeLines` | 分母——窗口内全部活代码行数，包括可能从 `DETAIL` 省略的人写/未归因行。 |
 | `SUMMARY.fullGeneratedCodeLines` | `genRatio == 100` 的行数（*纯 AI* 的分子）。 |
 | `SUMMARY.partialGeneratedCodeLines` | `0 < genRatio < 100` 的行数。 |
-| `SUMMARY.totalDocLines` / `fullGeneratedDocLines` / `partialGeneratedDocLines` | 同上，只统文档文件（Scope C/D）。 |
-| `DETAIL[].fileName` | 窗口内每个活文件。 |
-| `DETAIL[].codeLines[]` / `docLines[]` | 逐行的 `{lineLocation, genRatio, genMethod}`（或连续行用 `lineRange`），从来源 revision 的 genCodeDesc 拷过来。 |
+| `SUMMARY.totalDocLines` / `fullGeneratedDocLines` / `partialGeneratedDocLines` | 同上，只统文档文件（Scope C/D）。代码和文档计数都满足 `total >= fullGenerated + partialGenerated`；差值就是有效 `genRatio=0` 的人写/未归因行。 |
+| `DETAIL[].fileName` | 有归因条目的窗口内活文件。只有被省略的人写/未归因行的文件可以不出现。 |
+| `DETAIL[].codeLines[]` / `docLines[]` | 稀疏的 v26.03 归因条目。`genRatio > 0` 的行用 `{lineLocation, genRatio, genMethod}`（或连续行用 `lineRange`）记录。人写/未归因行可以省略；省略即表示有效 `genRatio=0`。 |
 
 **聚合专属扩展**（作为同级顶层 key；只认 v26.03 的老消费者会忽略）：
 
@@ -138,7 +143,7 @@
 | `AGGREGATE.metrics.mostlyAI` | `{value, numerator, threshold}` — `count(genRatio >= T) / totalCodeLines`。 |
 | `AGGREGATE.diagnostics` | `{missingRevisions[], duplicateRevisions[], clockSkewDetected, warnings[]}`。 |
 
-例子（窗口内 10 行活代码，`genRatio = [100,100,100,100,100, 80,80,80, 30, 0]`，阈值 60）：
+例子（窗口内 10 行活代码，已生成行的 `genRatio = [100,100,100,100,100, 80,80,80, 30]`，另有 1 行省略的人写行，有效 `genRatio=0`，阈值 60）：
 
 ```json
 {
@@ -161,8 +166,7 @@
       "codeLines": [
         {"lineRange": {"from": 1, "to": 5}, "genRatio": 100, "genMethod": "codeCompletion"},
         {"lineRange": {"from": 6, "to": 8}, "genRatio":  80, "genMethod": "vibeCoding"},
-        {"lineLocation": 9,                 "genRatio":  30, "genMethod": "vibeCoding"},
-        {"lineLocation": 10,                "genRatio":   0, "genMethod": "Manual"}
+        {"lineLocation": 9,                 "genRatio":  30, "genMethod": "vibeCoding"}
       ]
     }
   ],
@@ -217,7 +221,7 @@ git diff <revJustBeforeStartTime>..<revAtEndTime> -- <scope 路径>
   | 算法 | patch 怎么得来 |
   |---|---|
   | A | 在工作副本或远端调 `git diff` / `svn diff`。 |
-  | B | 把 `commit-patch-dir` 里的单次 revision diff 按拓扑顺序拼成一个累积 diff，revision 之间加 `# --- commit <rev> ---` 分隔符。 |
+  | B | 把 `commitPatchDir` 里的单次 revision diff 按拓扑顺序拼成一个累积 diff，revision 之间加 `# --- commit <rev> ---` 分隔符。 |
   | C | 从 v26.04 的内嵌 add/delete 记录合成：把 `[startTime, endTime]` 上累积的 add/delete 状态序列化为 unified diff。不访问 VCS。 |
 
 - **用途**：和 JSON 配对——JSON 回答*"比例多少"*，patch 回答*"到底算了哪些行"*；两者一起就能审计、复现，不需要再访问仓库。
@@ -229,50 +233,50 @@ git diff <revJustBeforeStartTime>..<revAtEndTime> -- <scope 路径>
 
 轴：**VCS** = `git` | `svn` · **访问** = `local` | `remote` · **算法** = `A` | `B` | `C`。
 
-每个组合都消费同一个 §2.2 里说的 `gen-code-desc-dir` 序列。
+每个组合都消费同一个 §2.2 里说的 `genCodeDescDir` 序列。
 
 ### 4.1 git × local
 
 #### git · local · A（实时 blame）
 
-- **前置**：本地有工作副本；`git` 在 PATH；`gen-code-desc-dir` 是 v26.03。
+- **前置**：本地有工作副本；`git` 在 PATH；`genCodeDescDir` 是 v26.03。
 - **示例形状**：
   ```
   aggregateGenCodeDesc \
-    --repo-url file:///srv/repos/foo \
-    --repo-branch main \
-    --start-time 2026-01-01T00:00:00Z --end-time 2026-04-01T00:00:00Z \
+    --repoUrl file:///srv/repos/foo \
+    --repoBranch main \
+    --startTime 2026-01-01T00:00:00Z --endTime 2026-04-01T00:00:00Z \
     --threshold 60 --algorithm A --scope A \
-    --gen-code-desc-dir ./gcd/ \
-    --output-dir ./out/
+    --genCodeDescDir ./gcd/ \
+    --outputDir ./out/
   ```
 - **局限**：浅克隆会让 blame 失真（AC-005-4）。
 
 #### git · local · B（离线 diff 重放）
 
-- **前置**：工作副本带窗口内完整对象库；`commit-patch-dir` 已填充。
+- **前置**：工作副本带窗口内完整对象库；`commitPatchDir` 已填充。
 - **局限**：重命名链深时状态会炸（见 README 规模表）。
 
 #### git · local · C（内嵌 blame，仅 v26.04）
 
-- **前置**：**完全不需要 VCS**——`repo-url` / `repo-branch` 只用来做校验。`gen-code-desc-dir` 必须是 v26.04。
+- **前置**：**完全不需要 VCS**——`repoUrl` / `repoBranch` 只用来做校验。`genCodeDescDir` 必须是 v26.04。
 - **局限**：正确性完全依赖 codeAgent 写入时的 blame。
 
 ### 4.2 git × remote
 
 #### git · remote · A
 
-- **前置**：调用方须事先克隆远端（通过 `repo-path` 传路径），或 fork 自动克隆到工作目录。
+- **前置**：调用方须事先克隆远端（通过 `--repoPath` 传路径），或 fork 自动克隆到工作目录。
 - **局限**：浅克隆会让 blame 失真（AC-005-4）。
 
 #### git · remote · B
 
-- **前置**：调用方在 `commit-patch-dir` 里事先备好每个 revision 的 patch。工具本身不联网。
+- **前置**：调用方在 `commitPatchDir` 里事先备好每个 revision 的 patch。工具本身不联网。
 - **局限**：patch 的准备是调用方的责任。
 
 #### git · remote · C
 
-- **前置**：**完全不访问远端仓库**。传 `repo-url`/`repo-branch` 只是为了让结果 JSON 自我标识。
+- **前置**：**完全不访问远端仓库**。传 `repoUrl`/`repoBranch` 只是为了让结果 JSON 自我标识。
 - **推荐**：内网隔离 / 大规模批处理场景。
 
 ### 4.3 svn × local
@@ -284,7 +288,7 @@ git diff <revJustBeforeStartTime>..<revAtEndTime> -- <scope 路径>
 
 #### svn · local · B
 
-- **前置**：工作副本；`commit-patch-dir` 通过 `svn diff -rN:M` 填充。
+- **前置**：工作副本；`commitPatchDir` 通过 `svn diff -rN:M` 填充。
 - **局限**：不支持跨文件 move 检测。
 
 #### svn · local · C
@@ -295,12 +299,12 @@ git diff <revJustBeforeStartTime>..<revAtEndTime> -- <scope 路径>
 
 #### svn · remote · A
 
-- **前置**：调用方须事先签出 SVN 工作副本。`repo-branch` 要传 SVN 路径（如 `trunk`）。
+- **前置**：调用方须事先签出 SVN 工作副本。`repoBranch` 要传 SVN 路径（如 `trunk`）。
 - **局限**：工具本身不应直接联 SVN 服务器。
 
 #### svn · remote · B
 
-- **前置**：调用方在 `commit-patch-dir` 里事先备好每个 revision 的 patch。
+- **前置**：调用方在 `commitPatchDir` 里事先备好每个 revision 的 patch。
 - **局限**：patch 的准备是调用方的责任。
 
 #### svn · remote · C
@@ -332,10 +336,10 @@ git diff <revJustBeforeStartTime>..<revAtEndTime> -- <scope 路径>
 
 | 情况 | 参数 | 默认 | 退出码 |
 |---|---|---|---|
-| 窗口内某 revision 的 genCodeDesc 缺失 | `on-missing` | `zero`（A/B）/ `abort`（C） | 0 / 2 |
+| 窗口内某 revision 的 genCodeDesc 缺失 | `--onMissing` | `zero`（A/B）/ `abort`（C） | 0 / 2 |
 | 文件里 `REPOSITORY` 对不上 | — | 一律拒绝 | 2 |
-| `revisionId` 重复 | `on-duplicate` | `reject` | 2 / 0 |
-| `revisionTimestamp` 非单调（Alg C） | `on-clock-skew` | `abort` | 2 / 0 |
+| `revisionId` 重复 | `--onDuplicate` | `reject` | 2 / 0 |
+| `revisionTimestamp` 非单调（Alg C） | `--onClockSkew` | `abort` | 2 / 0 |
 | `genRatio` 超出 0..100 | — | 一律拒绝 | 2 |
 | 目录里协议版本混用 | — | 一律拒绝 | 2 |
 | Alg C 给了 v26.03，或 Alg A/B 给了 v26.04 | — | 一律拒绝 | 2 |
@@ -358,43 +362,43 @@ git diff <revJustBeforeStartTime>..<revAtEndTime> -- <scope 路径>
 
 ```text
 aggregateGenCodeDesc \
-  --repo-url https://github.com/acme/myrepo \
-  --repo-branch main \
-  --start-time 2026-01-01T00:00:00Z \
-  --end-time 2026-04-01T00:00:00Z \
+  --repoUrl https://github.com/acme/myrepo \
+  --repoBranch main \
+  --startTime 2026-01-01T00:00:00Z \
+  --endTime 2026-04-01T00:00:00Z \
   --threshold 60 \
   --algorithm A --scope A \
-  --gen-code-desc-dir ./gcd-v26.03/ \
-  --output-dir ./out/
+  --genCodeDescDir ./gcd-v26.03/ \
+  --outputDir ./out/
 ```
 
 ### 算法 B：离线 Diff 重放（Git 或 SVN）
 
 ```text
 aggregateGenCodeDesc \
-  --repo-url https://svn.example.com/repo \
-  --repo-branch /trunk \
-  --start-time 2026-02-01T00:00:00Z \
-  --end-time 2026-02-28T23:59:59Z \
+  --repoUrl https://svn.example.com/repo \
+  --repoBranch /trunk \
+  --startTime 2026-02-01T00:00:00Z \
+  --endTime 2026-02-28T23:59:59Z \
   --threshold 60 \
   --algorithm B --scope A \
-  --gen-code-desc-dir ./gcd-v26.03/ \
-  --commit-patch-dir ./diffs/ \
-  --output-dir ./out/
+  --genCodeDescDir ./gcd-v26.03/ \
+  --commitPatchDir ./diffs/ \
+  --outputDir ./out/
 ```
 
 ### 算法 C：内嵌 Blame（仅 v26.04，不需访问 VCS）
 
 ```text
 aggregateGenCodeDesc \
-  --repo-url https://github.com/acme/myrepo \
-  --repo-branch main \
-  --start-time 2026-01-01T00:00:00Z \
-  --end-time 2026-04-01T00:00:00Z \
+  --repoUrl https://github.com/acme/myrepo \
+  --repoBranch main \
+  --startTime 2026-01-01T00:00:00Z \
+  --endTime 2026-04-01T00:00:00Z \
   --threshold 60 \
   --algorithm C --scope A \
-  --gen-code-desc-dir ./gcd-v26.04/ \
-  --output-dir ./out/
+  --genCodeDescDir ./gcd-v26.04/ \
+  --outputDir ./out/
 ```
 
 ---
@@ -404,8 +408,8 @@ aggregateGenCodeDesc \
 1. 从 `MyGenCodeDescBase` fork 出来，针对特定 CodeAgent & LLM 组合。
 2. 用你选定的语言（Python / C++ / Rust）实现 `aggregateGenCodeDesc`。
 3. 你的 fork 的 `README_ZH.md` 引用本手册，并说明：
-   - 具体的 CLI 参数名（可以和上面的参数名不同）。
-   - 12 个组合中哪些已支持（目标是全部 12 个；仅支持 Alg C 的 fork 可以跳过第 1、2、7、8 格）。
-   - 每个组合的已知局限（如"Alg B 尚未实现"）。
-   - `on-missing`、`on-duplicate`、`on-clock-skew` 的默认策略。
-4. [README_UserStories.md](README_UserStories.md) 里的全部 57 条验收标准都是测试目标。
+    - 除上面强制 lower-camel-case CLI 参数之外，是否还支持额外兼容参数。
+    - 12 个组合中哪些已支持（目标是全部 12 个；仅支持 Alg C 的 fork 可以跳过第 1、2、7、8 格）。
+    - 每个组合的已知局限（如"Alg B 尚未实现"）。
+    - `--onMissing`、`--onDuplicate`、`--onClockSkew` 的默认策略。
+4. [README_UserStories.md](README_UserStories.md) 里的全部 59 条验收标准都是测试目标。
