@@ -6,10 +6,38 @@ If your fork passes all AC scenarios below, your `aggregateGenCodeDesc` implemen
 Format follows the [create-user-story](/.github/skills/create-user-story/SKILL.md) skill:
 `AS A / I WANT / SO THAT` + `GIVEN / WHEN / THEN` with AC categories.
 
----
 
 ## Roles
 
+## US-000: Safe Agent Sandbox for All Forks
+
+**As a** codebase maintainer or tool developer,
+**I want** every fork to use a reproducible, isolated container environment for all code agent work,
+**So that** experiments, builds, and agent actions cannot pollute or damage the host system, and all contributors have a consistent, safe setup.
+
+### Acceptance Criteria
+
+#### Scenario 1: Fork initializes with Dev Container
+- **Given** a developer forks MyGenCodeDescBase
+- **When** they open the fork in VS Code with Docker Desktop running
+- **Then** VS Code offers to reopen in a Dev Container, and the container builds successfully
+
+#### Scenario 2: All agent/code work happens inside container
+- **Given** the fork is open in the Dev Container
+- **When** a code agent (Copilot, LLM, etc.) generates code, runs tests, or installs dependencies
+- **Then** all actions are isolated to the container and do not affect the host system
+
+#### Scenario 3: Non-root user and no host secrets
+- **Given** the container is running
+- **Then** the default user is non-root, and no host secrets or Docker socket are mounted by default
+
+#### Scenario 4: Documentation for safe workflow
+- **Given** a new contributor reads the repo docs
+- **When** they follow the forking and Dev Container instructions
+- **Then** they can reproduce the safe agent workflow without extra setup
+
+### Notes
+- This scenario was added 2026-04-27 to enforce a safe, reproducible agent workflow for all forks.
 | Role | Definition | Source |
 |------|-----------|--------|
 | **codebase maintainer** | Person who uses `aggregateGenCodeDesc` to measure AI-generated code ratio across revisions. | [README.md](README.md) — "WHAT WE WANT" |
