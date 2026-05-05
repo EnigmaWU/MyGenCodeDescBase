@@ -5,7 +5,7 @@ Defines **WHEN** you run it, **WHERE** inputs/outputs live, and **HOW** to invok
 
 Each fork of this BASE implements this contract in its chosen language (Python / C++ / Rust) and CLI convention.
 
-- Related docs: [README.md](README.md) · [README_UserStories.md](README_UserStories.md) · [README_AlgABC.md](README_AlgABC.md) · [README_Protocol.md](README_Protocol.md)
+- Related docs: [README.md](README.md) · [README_UserStories.md](README_UserStories.md) · [README_AlgABC.md](README_AlgABC.md) · [README_Protocol.md](README_Protocol.md) · [README_TestGuide.md](README_TestGuide.md)
 
 ---
 
