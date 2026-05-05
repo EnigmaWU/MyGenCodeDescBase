@@ -5,7 +5,7 @@
 
 这个 BASE 的每个 fork 用各自选定的语言（Python / C++ / Rust）和 CLI 规范实现本合约。
 
-- 相关文档：[README_ZH.md](README_ZH.md) · [README_UserStories.md](README_UserStories.md) · [README_AlgABC_ZH.md](README_AlgABC_ZH.md) · [README_Protocol_ZH.md](README_Protocol_ZH.md) · [README_TestGuide.md](README_TestGuide.md)
+- 相关文档：[README_ZH.md](README_ZH.md) · [README_UserStories.md](README_UserStories.md) · [README_AlgABC_ZH.md](README_AlgABC_ZH.md) · [README_Protocol_ZH.md](README_Protocol_ZH.md) · [README_TestGuide_ZH.md](README_TestGuide_ZH.md)
 
 ---
 
