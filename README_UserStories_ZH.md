@@ -348,14 +348,17 @@ Scenario: [Edge] Deleted and re-added identical line has new origin
   AND genRatio 来自 C2 的 genCodeDesc
 ```
 
-### AC-004-6: [Edge] 文件内移动的行获得新归因
+### AC-004-6: [Edge] 文件内移动的行遵循配置的所有权策略
 
 ```gherkin
 Scenario: [Edge] Line moved from position 10 to position 50
   GIVEN 行 "x = compute()" 在 commit C1 中位于位置 10
   AND 该行在 [startTime, endTime] 内的 commit C2 中移动到位置 50
-  WHEN aggregateGenCodeDesc 计算指标
-  THEN 位置 50 的该行归因到 commit C2
+  WHEN aggregateGenCodeDesc 按 fork 配置的 move-detection 策略计算指标
+  THEN fork 记录该 move 是按保留内容来源处理，还是按 delete+add 处理
+  AND 如果按保留内容来源处理，该行保留 blame 报告的 origin，genRatio 来自该来源 revision
+  AND 如果按 delete+add 处理，位置 50 的行归因到 C2，genRatio 来自 C2 的 genCodeDesc
+  AND 启用 DEBUG 诊断时会记录所选策略
 ```
 
 ---
@@ -405,8 +408,9 @@ Scenario: [Edge] Shallow clone causes blame to hit boundary
   GIVEN Git 仓库以 --depth 50 克隆
   AND 某些行的 origin 超过 50 个 commit 边界
   WHEN aggregateGenCodeDesc 使用 AlgA（实时 blame）
-  THEN 超出边界的行显示为源自边界 commit
-  AND fork 将此记录为已知局限
+  THEN 工具在接受结果前检测 shallow clone 或 blame boundary
+  AND 工具要么获取足够历史、要么以清晰错误 abort、要么把结果标记为降级（由 fork 定义策略）
+  AND 不会静默地把边界 commit 当作真实行来源
 ```
 
 ### AC-005-5: [Edge] Submodule 有独立 genCodeDesc 链
@@ -435,7 +439,9 @@ Scenario: [Fault] One revision's genCodeDesc is missing
   GIVEN commit C5 位于 [startTime, endTime] 内
   AND C5 没有对应 genCodeDesc 记录
   WHEN aggregateGenCodeDesc 处理该窗口
-  THEN AlgA/B 将 C5 的行视为 genRatio 0（未归因）
+  THEN 对 AlgA/B，缺失记录按配置的 --onMissing 策略处理
+  AND 默认 zero 策略将 C5 的行视为 genRatio 0，并输出包含 revisionId C5 的诊断
+  AND 缺失记录不会被静默忽略
   AND AlgC 将缺失记录报告为链路中断错误
 ```
 
@@ -618,15 +624,15 @@ SO THAT 无论 fork 实现哪个算法，指标结果都准确。
 
 ### AlgA —— 实时 Blame
 
-#### AC-009-1: [Typical] Blame 通过 -M 追踪 rename
+#### AC-009-1: [Typical] Blame 追踪整文件 rename
 
 ```gherkin
-Scenario: [Typical] AlgA follows renamed file via git blame -M
+Scenario: [Typical] AlgA follows renamed file via git blame
   GIVEN 文件 "old_name.py" 在 commit C1 中被重命名为 "new_name.py"
   AND "new_name.py" 第 10 行最初写于 commit C0
   WHEN aggregateGenCodeDesc 对 "new_name.py" 运行 AlgA 的 git blame
-  THEN blame 报告第 10 行的 origin 是 commit C0（不是 C1）
-  AND genRatio 来自 C0 的 genCodeDesc
+  THEN blame 报告第 10 行的 origin 是 commit C0（不是 C1），且 origin file 是 "old_name.py"
+  AND genRatio 查找使用 C0 的 genCodeDesc 中的来源坐标
 ```
 
 #### AC-009-2: [Edge] 通过 -C -C 检测跨文件移动
@@ -679,9 +685,23 @@ Scenario: [Typical] AlgA computes metrics when exactly one commit is inside the 
   AND 这 5 条来源为 C1 的存活行的 genRatio 从 genCodeDescV26.03(C1) 查找
 ```
 
+#### AC-009-6: [Typical] AlgA 在隔离的 endTime 快照上运行 blame
+
+```gherkin
+Scenario: [Typical] AlgA resolves endTime snapshot before running blame
+  GIVEN repoBranch 上 commit C1 是 timestamp <= endTime 的最后一个 revision
+  AND commit C2 位于 endTime 之后
+  AND 本地 repoPath 当前 checkout 在 C2，且存在未提交修改
+  WHEN aggregateGenCodeDesc 针对 [startTime, endTime] 运行 AlgA
+  THEN 工具将 toCommit 解析为 C1
+  AND blame 在 C1 的干净隔离 checkout 或 worktree 上运行
+  AND blame 不在当前 HEAD C2 上运行
+  AND 用户 working tree 和未提交文件不会被修改
+```
+
 ### AlgB —— Diff 重放
 
-#### AC-009-6: [Typical] 按拓扑顺序重放多文件 diff
+#### AC-009-7: [Typical] 按拓扑顺序重放多文件 diff
 
 ```gherkin
 Scenario: [Typical] AlgB replays multi-file, multi-hunk diffs in correct commit order
@@ -695,7 +715,7 @@ Scenario: [Typical] AlgB replays multi-file, multi-hunk diffs in correct commit 
   AND 最终 line-to-origin 映射匹配 endTime 的活文件状态
 ```
 
-#### AC-009-7: [Edge] 跨重命名链追踪行位置
+#### AC-009-8: [Edge] 跨重命名链追踪行位置
 
 ```gherkin
 Scenario: [Edge] AlgB tracks lines across rename chain
@@ -707,7 +727,7 @@ Scenario: [Edge] AlgB tracks lines across rename chain
   AND rename graph 正确映射 v1.py → v2.py → v3.py
 ```
 
-#### AC-009-8: [Fault] 链中缺失一个 diff
+#### AC-009-9: [Fault] 链中缺失一个 diff
 
 ```gherkin
 Scenario: [Fault] AlgB cannot retrieve diff for commit C3
@@ -721,7 +741,7 @@ Scenario: [Fault] AlgB cannot retrieve diff for commit C3
 
 ### AlgC —— 内嵌 Blame（仅 v26.04）
 
-#### AC-009-9: [Typical] Add/delete 操作构建正确存活集合
+#### AC-009-10: [Typical] Add/delete 操作构建正确存活集合
 
 ```gherkin
 Scenario: [Typical] AlgC accumulates surviving lines from add/delete entries
@@ -734,7 +754,7 @@ Scenario: [Typical] AlgC accumulates surviving lines from add/delete entries
   AND 每个存活行的 genRatio 匹配其 add entry 的 genCodeDesc
 ```
 
-#### AC-009-10: [Edge] 同一 file+line 有重复 add entry
+#### AC-009-11: [Edge] 同一 file+line 有重复 add entry
 
 ```gherkin
 Scenario: [Edge] AlgC encounters duplicate add for the same line position
@@ -746,7 +766,7 @@ Scenario: [Edge] AlgC encounters duplicate add for the same line position
   AND 不一致情况被记录日志
 ```
 
-#### AC-009-11: [Fault] SUMMARY lineCount 与实际 DETAIL entries 不一致
+#### AC-009-12: [Fault] SUMMARY lineCount 与实际 DETAIL entries 不一致
 
 ```gherkin
 Scenario: [Fault] AlgC detects mismatch between SUMMARY and DETAIL
@@ -867,9 +887,9 @@ Scenario: [Testability] Unit tests can set log level programmatically
 | US-006 | 破坏性与边界条件 | 6 | Fault, Misuse, Typical |
 | US-007 | Git 与 SVN 差异 | 5 | Typical, Edge |
 | US-008 | 规模与性能 | 4 | Performance, Edge, Robust |
-| US-009 | 算法特定行为 | 11 | Typical, Edge, Fault |
+| US-009 | 算法特定行为 | 12 | Typical, Edge, Fault |
 | US-010 | 诊断与日志 | 7 | Typical, Edge, Observability, Testability |
-| **总计** | | **62 AC** | |
+| **总计** | | **63 AC** | |
 
 ---
 
@@ -880,7 +900,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 3. **RED** — 根据 GIVEN/WHEN/THEN 场景写一个失败测试。
 4. **GREEN** — 实现最小代码让测试通过。
 5. **REFACTOR** — 清理实现。
-6. 当全部 62 个 AC 都通过时，说明你的实现符合 BASE 规范。
+6. 当全部 63 个 AC 都通过时，说明你的实现符合 BASE 规范。
 
 > **不是每个 AC 都适用于每个 fork。** Git-only 条件（rebase、amend、shallow clone）
 > 可以被 SVN fork 跳过。AlgC-specific AC 可以被只实现 AlgA 的 fork 跳过。
@@ -937,22 +957,23 @@ SVN 是 legacy；在协议能力允许范围内支持，但存在已知局限。
 | AC | AlgA（实时 blame） | AlgB（diff 重放） | AlgC（内嵌 blame） |
 | --- | --- | --- | --- |
 | **US-001 ~ US-004** | ✅ | ✅ | ✅ |
-| AC-005-4（shallow clone） | ✅ hit boundary | ✅ diffs unavailable beyond depth | ❌ N/A（自给自足） |
-| AC-006-1（missing genCodeDesc） | ✅ genRatio=0 | ✅ genRatio=0 | ⚠️ chain break |
+| AC-005-4（shallow clone） | ✅ detect/fetch/abort/degrade | ✅ diffs unavailable beyond depth | ❌ N/A（自给自足） |
+| AC-006-1（missing genCodeDesc） | ✅ --onMissing policy | ✅ --onMissing policy | ⚠️ chain break |
 | AC-006-4（clock skew） | ❌ N/A（order-independent） | ❌ N/A（topological order） | ✅ sorts by timestamp |
 | AC-008-1（AlgA perf） | ✅ | ❌ N/A | ❌ N/A |
 | AC-008-2（AlgC perf） | ❌ N/A | ❌ N/A | ✅ |
-| **AC-009-1（rename -M）** | ✅ | ❌ N/A | ❌ N/A |
+| **AC-009-1（rename blame）** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-2（cross-file -C -C）** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-3（VCS unreachable）** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-4（origin-coordinate lookup）** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-5（single in-window commit）** | ✅ | ❌ N/A | ❌ N/A |
-| **AC-009-6（topological multi-file replay）** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-7（chained renames）** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-8（missing diff）** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-9（surviving set）** | ❌ N/A | ❌ N/A | ✅ |
-| **AC-009-10（duplicate add）** | ❌ N/A | ❌ N/A | ✅ |
-| **AC-009-11（SUMMARY mismatch）** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-6（isolated endTime snapshot）** | ✅ | ❌ N/A | ❌ N/A |
+| **AC-009-7（topological multi-file replay）** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-8（chained renames）** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-9（missing diff）** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-10（surviving set）** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-11（duplicate add）** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-12（SUMMARY mismatch）** | ❌ N/A | ❌ N/A | ✅ |
 
 > **对于 SVN forks：** 跳过所有 ❌ N/A 行。把 ⚠️ 行作为已知局限记录到你的 fork README。
 >

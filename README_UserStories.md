@@ -346,14 +346,17 @@ Scenario: [Edge] Deleted and re-added identical line has new origin
   AND genRatio comes from C2's genCodeDesc
 ```
 
-### AC-004-6: [Edge] Line moved within file gets new attribution
+### AC-004-6: [Edge] Line moved within file follows configured ownership policy
 
 ```gherkin
 Scenario: [Edge] Line moved from position 10 to position 50
   GIVEN line "x = compute()" at position 10 in commit C1
   AND the line is moved to position 50 in commit C2 within [startTime, endTime]
-  WHEN aggregateGenCodeDesc computes the metric
-  THEN the line at position 50 is attributed to commit C2
+  WHEN aggregateGenCodeDesc computes the metric with the fork's configured move-detection policy
+  THEN the fork documents whether this move is treated as a content-preserving move or as delete+add
+  AND if treated as content-preserving, the line keeps the origin reported by blame and genRatio comes from that origin revision
+  AND if treated as delete+add, the line at position 50 is attributed to C2 and genRatio comes from C2's genCodeDesc
+  AND the selected policy is logged when DEBUG diagnostics are enabled
 ```
 
 ---
@@ -403,8 +406,9 @@ Scenario: [Edge] Shallow clone causes blame to hit boundary
   GIVEN a Git repository cloned with --depth 50
   AND some line origins are beyond the 50-commit boundary
   WHEN aggregateGenCodeDesc uses AlgA (live blame)
-  THEN lines beyond the boundary are shown as originating from the boundary commit
-  AND the fork documents this as a known limitation
+  THEN the tool detects the shallow clone or blame boundary before accepting the result
+  AND the tool either fetches enough history, aborts with a clear error, or marks the result degraded (fork-defined policy)
+  AND no boundary commit is silently treated as the true line origin
 ```
 
 ### AC-005-5: [Edge] Submodule has separate genCodeDesc chain
@@ -433,7 +437,9 @@ Scenario: [Fault] One revision's genCodeDesc is missing
   GIVEN commit C5 is within [startTime, endTime]
   AND no genCodeDesc record exists for C5
   WHEN aggregateGenCodeDesc processes the window
-  THEN lines from C5 are treated as genRatio 0 (unattributed) for AlgA/B
+  THEN for AlgA/B, the missing record follows the configured --onMissing policy
+  AND the default zero policy treats C5 lines as genRatio 0 with a diagnostic containing revisionId C5
+  AND no missing-record case is silently ignored
   AND for AlgC the missing record is reported as a chain break error
 ```
 
@@ -616,15 +622,15 @@ SO THAT the metric result is accurate regardless of which algorithm the fork imp
 
 ### AlgA — Live Blame
 
-#### AC-009-1: [Typical] Blame traces through rename via -M
+#### AC-009-1: [Typical] Blame traces through whole-file rename
 
 ```gherkin
-Scenario: [Typical] AlgA follows renamed file via git blame -M
+Scenario: [Typical] AlgA follows renamed file via git blame
   GIVEN file "old_name.py" was renamed to "new_name.py" in commit C1
   AND line 10 of "new_name.py" was originally written in commit C0
   WHEN aggregateGenCodeDesc runs AlgA with git blame on "new_name.py"
-  THEN blame reports line 10's origin as commit C0 (not C1)
-  AND genRatio comes from C0's genCodeDesc
+  THEN blame reports line 10's origin as commit C0 (not C1) and origin file "old_name.py"
+  AND genRatio lookup uses C0's genCodeDesc at the origin coordinates
 ```
 
 #### AC-009-2: [Edge] Cross-file move detected via -C -C
@@ -677,9 +683,23 @@ Scenario: [Typical] AlgA computes metrics when exactly one commit is inside the 
   AND genRatio for those 5 live C1-origin lines is looked up from genCodeDescV26.03(C1)
 ```
 
+#### AC-009-6: [Typical] AlgA blames an isolated endTime snapshot
+
+```gherkin
+Scenario: [Typical] AlgA resolves endTime snapshot before running blame
+  GIVEN repoBranch has commit C1 as the last revision with timestamp <= endTime
+  AND commit C2 exists after endTime
+  AND the local repoPath is currently checked out at C2 with uncommitted work
+  WHEN aggregateGenCodeDesc runs AlgA for [startTime, endTime]
+  THEN the tool resolves toCommit as C1
+  AND blame runs against a clean isolated checkout or worktree at C1
+  AND blame is not run against the current HEAD C2
+  AND the user's working tree and uncommitted files are not modified
+```
+
 ### AlgB — Diff Replay
 
-#### AC-009-6: [Typical] Sequential multi-file diff replay in topological order
+#### AC-009-7: [Typical] Sequential multi-file diff replay in topological order
 
 ```gherkin
 Scenario: [Typical] AlgB replays multi-file, multi-hunk diffs in correct commit order
@@ -693,7 +713,7 @@ Scenario: [Typical] AlgB replays multi-file, multi-hunk diffs in correct commit 
   AND the final line-to-origin mapping matches the live file state at endTime
 ```
 
-#### AC-009-7: [Edge] Line-position tracking through chained renames
+#### AC-009-8: [Edge] Line-position tracking through chained renames
 
 ```gherkin
 Scenario: [Edge] AlgB tracks lines across rename chain
@@ -705,7 +725,7 @@ Scenario: [Edge] AlgB tracks lines across rename chain
   AND the rename graph correctly maps v1.py → v2.py → v3.py
 ```
 
-#### AC-009-8: [Fault] One diff in the chain is missing
+#### AC-009-9: [Fault] One diff in the chain is missing
 
 ```gherkin
 Scenario: [Fault] AlgB cannot retrieve diff for commit C3
@@ -719,7 +739,7 @@ Scenario: [Fault] AlgB cannot retrieve diff for commit C3
 
 ### AlgC — Embedded Blame (v26.04)
 
-#### AC-009-9: [Typical] Add/delete operations build correct surviving set
+#### AC-009-10: [Typical] Add/delete operations build correct surviving set
 
 ```gherkin
 Scenario: [Typical] AlgC accumulates surviving lines from add/delete entries
@@ -732,7 +752,7 @@ Scenario: [Typical] AlgC accumulates surviving lines from add/delete entries
   AND each surviving line's genRatio matches its add entry's genCodeDesc
 ```
 
-#### AC-009-10: [Edge] Duplicate add entry for same file+line
+#### AC-009-11: [Edge] Duplicate add entry for same file+line
 
 ```gherkin
 Scenario: [Edge] AlgC encounters duplicate add for the same line position
@@ -744,7 +764,7 @@ Scenario: [Edge] AlgC encounters duplicate add for the same line position
   AND the inconsistency is logged
 ```
 
-#### AC-009-11: [Fault] SUMMARY lineCount mismatches actual DETAIL entries
+#### AC-009-12: [Fault] SUMMARY lineCount mismatches actual DETAIL entries
 
 ```gherkin
 Scenario: [Fault] AlgC detects mismatch between SUMMARY and DETAIL
@@ -865,9 +885,9 @@ Scenario: [Testability] Unit tests can set log level programmatically
 | US-006 | Destructive and Edge Conditions | 6 | Fault, Misuse, Typical |
 | US-007 | Git vs SVN Differences | 5 | Typical, Edge |
 | US-008 | Scale and Performance | 4 | Performance, Edge, Robust |
-| US-009 | Algorithm-Specific Behavior | 11 | Typical, Edge, Fault |
+| US-009 | Algorithm-Specific Behavior | 12 | Typical, Edge, Fault |
 | US-010 | Diagnostics and Logging | 7 | Typical, Edge, Observability, Testability |
-| **Total** | | **62 AC** | |
+| **Total** | | **63 AC** | |
 
 ---
 
@@ -878,7 +898,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 3. **RED** — write a failing test from the GIVEN/WHEN/THEN scenario.
 4. **GREEN** — implement minimal code to pass.
 5. **REFACTOR** — clean up.
-6. When all 62 ACs pass → your implementation is correct per the BASE specification.
+6. When all 63 ACs pass → your implementation is correct per the BASE specification.
 
 > **Not every AC applies to every fork.** Git-only conditions (rebase, amend, shallow clone)
 > can be skipped by SVN forks. AlgC-specific ACs can be skipped by AlgA-only forks.
@@ -935,22 +955,23 @@ SVN is legacy — supported to the extent that the protocol allows, but with kno
 | AC | AlgA (live blame) | AlgB (diff replay) | AlgC (embedded blame) |
 |----|-------------------|---------------------|----------------------|
 | **US-001 ~ US-004** | ✅ | ✅ | ✅ |
-| AC-005-4 (shallow clone) | ✅ boundary hit | ✅ diffs unavailable beyond depth | ❌ N/A (self-sufficient) |
-| AC-006-1 (missing genCodeDesc) | ✅ genRatio=0 | ✅ genRatio=0 | ⚠️ chain break |
+| AC-005-4 (shallow clone) | ✅ detect/fetch/abort/degrade | ✅ diffs unavailable beyond depth | ❌ N/A (self-sufficient) |
+| AC-006-1 (missing genCodeDesc) | ✅ --onMissing policy | ✅ --onMissing policy | ⚠️ chain break |
 | AC-006-4 (clock skew) | ❌ N/A (order-independent) | ❌ N/A (topological order) | ✅ sorts by timestamp |
 | AC-008-1 (AlgA perf) | ✅ | ❌ N/A | ❌ N/A |
 | AC-008-2 (AlgC perf) | ❌ N/A | ❌ N/A | ✅ |
-| **AC-009-1 (rename -M)** | ✅ | ❌ N/A | ❌ N/A |
+| **AC-009-1 (rename blame)** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-2 (cross-file -C -C)** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-3 (VCS unreachable)** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-4 (origin-coordinate lookup)** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-5 (single in-window commit)** | ✅ | ❌ N/A | ❌ N/A |
-| **AC-009-6 (topological multi-file replay)** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-7 (chained renames)** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-8 (missing diff)** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-9 (surviving set)** | ❌ N/A | ❌ N/A | ✅ |
-| **AC-009-10 (duplicate add)** | ❌ N/A | ❌ N/A | ✅ |
-| **AC-009-11 (SUMMARY mismatch)** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-6 (isolated endTime snapshot)** | ✅ | ❌ N/A | ❌ N/A |
+| **AC-009-7 (topological multi-file replay)** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-8 (chained renames)** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-9 (missing diff)** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-10 (surviving set)** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-11 (duplicate add)** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-12 (SUMMARY mismatch)** | ❌ N/A | ❌ N/A | ✅ |
 
 > **For SVN forks:** Skip all ❌ N/A rows. Document ⚠️ rows as known limitations in your fork README.
 >
