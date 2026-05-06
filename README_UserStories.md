@@ -578,18 +578,34 @@ Scenario: [Performance] AlgA at reference scale
   AND peak memory stays below 1 GB for sequential processing
 ```
 
-### AC-008-2: [Performance] AlgC processes 200 GB genCodeDesc data
+### AC-008-2: [Performance] AlgA handles a realistic 60-day multi-branch project
+
+```gherkin
+Scenario: [Performance] AlgA on one repo with 5 developers, 20 branches, and 60 days of activity
+  GIVEN one Git repository has 5 active developers
+  AND the repository has 20 active branches
+  AND the repository receives about 10 commits per day across all branches for the last 60 days
+  AND aggregateGenCodeDesc runs AlgA on repoBranch "main" for that 60-day [startTime, endTime] window
+  WHEN the tool computes the aggregate metrics
+  THEN fromCommit and toCommit are selected only from commits reachable on repoBranch "main"
+  AND branch-only commits that are not merged into "main" by endTime do not enter the denominator
+  AND merged, squash-merged, cherry-picked, and reverted lines follow their existing AC ownership rules
+  AND every counted live line is joined to genCodeDescV26.03 by blame origin revision and origin coordinates
+  AND the run completes with documented runtime, memory, blame command count, and degraded-result warnings if any
+```
+
+### AC-008-3: [Performance] AlgC processes 1 GB genCodeDescV26.04 data
 
 ```gherkin
 Scenario: [Performance] AlgC streaming at reference scale
-  GIVEN 1,000 genCodeDesc files totaling ~200 GB
-  AND each file has ~1M DETAIL entries
+  GIVEN genCodeDescV26.04 files totaling ~1 GB
+  AND the files include enough DETAIL entries to require streaming rather than full in-memory loading
   WHEN aggregateGenCodeDesc runs AlgC (embedded blame)
   THEN files are streamed in timestamp order (not all loaded at once)
-  AND peak memory is bounded by surviving set size (~6 GB)
+  AND peak memory is bounded by the surviving line set and fork documents actual memory usage
 ```
 
-### AC-008-3: [Edge] Zero commits in the window
+### AC-008-4: [Edge] Zero commits in the window
 
 ```gherkin
 Scenario: [Edge] Empty time window
@@ -600,7 +616,7 @@ Scenario: [Edge] Empty time window
   AND the tool completes without error
 ```
 
-### AC-008-4: [Robust] Tool recovers from mid-stream I/O failure
+### AC-008-5: [Robust] Tool recovers from mid-stream I/O failure
 
 ```gherkin
 Scenario: [Robust] Disk read fails on one genCodeDesc file
@@ -884,10 +900,10 @@ Scenario: [Testability] Unit tests can set log level programmatically
 | US-005 | Branch and History Conditions | 5 | Typical, Edge |
 | US-006 | Destructive and Edge Conditions | 6 | Fault, Misuse, Typical |
 | US-007 | Git vs SVN Differences | 5 | Typical, Edge |
-| US-008 | Scale and Performance | 4 | Performance, Edge, Robust |
+| US-008 | Scale and Performance | 5 | Performance, Edge, Robust |
 | US-009 | Algorithm-Specific Behavior | 12 | Typical, Edge, Fault |
 | US-010 | Diagnostics and Logging | 7 | Typical, Edge, Observability, Testability |
-| **Total** | | **63 AC** | |
+| **Total** | | **64 AC** | |
 
 ---
 
@@ -898,7 +914,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 3. **RED** — write a failing test from the GIVEN/WHEN/THEN scenario.
 4. **GREEN** — implement minimal code to pass.
 5. **REFACTOR** — clean up.
-6. When all 63 ACs pass → your implementation is correct per the BASE specification.
+6. When all 64 ACs pass → your implementation is correct per the BASE specification.
 
 > **Not every AC applies to every fork.** Git-only conditions (rebase, amend, shallow clone)
 > can be skipped by SVN forks. AlgC-specific ACs can be skipped by AlgA-only forks.
@@ -946,7 +962,7 @@ SVN is legacy — supported to the extent that the protocol allows, but with kno
 | **US-007 (Git vs SVN)** | | | |
 | AC-007-1 ~ AC-007-5 | ✅ | ✅ | Dedicated to documenting differences |
 | **US-008 (Scale/Perf)** | | | |
-| AC-008-1 ~ AC-008-4 | ✅ | ✅ | Same scale model applies to both |
+| AC-008-1 ~ AC-008-5 | ✅ | ✅ | Same scale model applies to both |
 
 **Legend:** ✅ = fully applicable, ⚠️ = applicable with known limitations, ❌ N/A = not applicable (skip)
 
@@ -959,7 +975,8 @@ SVN is legacy — supported to the extent that the protocol allows, but with kno
 | AC-006-1 (missing genCodeDesc) | ✅ --onMissing policy | ✅ --onMissing policy | ⚠️ chain break |
 | AC-006-4 (clock skew) | ❌ N/A (order-independent) | ❌ N/A (topological order) | ✅ sorts by timestamp |
 | AC-008-1 (AlgA perf) | ✅ | ❌ N/A | ❌ N/A |
-| AC-008-2 (AlgC perf) | ❌ N/A | ❌ N/A | ✅ |
+| AC-008-2 (realistic AlgA workload) | ✅ | ❌ N/A | ❌ N/A |
+| AC-008-3 (AlgC perf) | ❌ N/A | ❌ N/A | ✅ |
 | **AC-009-1 (rename blame)** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-2 (cross-file -C -C)** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-3 (VCS unreachable)** | ✅ | ❌ N/A | ❌ N/A |
@@ -976,4 +993,4 @@ SVN is legacy — supported to the extent that the protocol allows, but with kno
 > **For SVN forks:** Skip all ❌ N/A rows. Document ⚠️ rows as known limitations in your fork README.
 >
 > **For single-algorithm forks:** Implement only the ACs for your chosen algorithm.
-> A fork that only implements AlgA can skip AlgC-specific ACs (AC-008-2, AC-006-4).
+> A fork that only implements AlgA can skip AlgC-specific ACs (AC-008-3, AC-006-4).

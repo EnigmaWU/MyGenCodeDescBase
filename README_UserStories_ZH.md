@@ -580,18 +580,34 @@ Scenario: [Performance] AlgA at reference scale
   AND 顺序处理时峰值内存低于 1 GB
 ```
 
-### AC-008-2: [Performance] AlgC 处理 200 GB genCodeDesc 数据
+### AC-008-2: [Performance] AlgA 处理真实 60 天多分支项目
+
+```gherkin
+Scenario: [Performance] AlgA on one repo with 5 developers, 20 branches, and 60 days of activity
+  GIVEN 一个 Git 仓库有 5 名活跃开发者
+  AND 仓库有 20 个活跃分支
+  AND 最近 60 天内，仓库所有分支合计每天约有 10 个 commit
+  AND aggregateGenCodeDesc 针对 repoBranch "main" 和这 60 天的 [startTime, endTime] 窗口运行 AlgA
+  WHEN 工具计算聚合指标
+  THEN fromCommit 和 toCommit 只从 repoBranch "main" 可达的 commit 中选择
+  AND 到 endTime 仍未 merge 到 "main" 的分支专属 commit 不进入分母
+  AND merge、squash merge、cherry-pick、revert 的行遵循已有 AC 的所有权规则
+  AND 每条被统计的存活行都按 blame 来源 revision 和来源坐标 join 到 genCodeDescV26.03
+  AND 运行结束时记录实际耗时、内存、blame command 数量，以及任何降级结果 warning
+```
+
+### AC-008-3: [Performance] AlgC 处理 1 GB genCodeDescV26.04 数据
 
 ```gherkin
 Scenario: [Performance] AlgC streaming at reference scale
-  GIVEN 1,000 个 genCodeDesc 文件总计约 200 GB
-  AND 每个文件约有 1M 个 DETAIL 条目
+  GIVEN genCodeDescV26.04 文件总计约 1 GB
+  AND 这些文件包含足够多的 DETAIL 条目，需要 streaming 而不是一次性全部载入内存
   WHEN aggregateGenCodeDesc 运行 AlgC（内嵌 blame）
   THEN 文件按时间戳顺序流式处理（不一次性全部加载）
-  AND 峰值内存由存活集合大小限制（约 6 GB）
+  AND 峰值内存由存活行集合限制，fork 记录实际内存用量
 ```
 
-### AC-008-3: [Edge] 时间窗口内零 commit
+### AC-008-4: [Edge] 时间窗口内零 commit
 
 ```gherkin
 Scenario: [Edge] Empty time window
@@ -602,7 +618,7 @@ Scenario: [Edge] Empty time window
   AND 工具无错误完成
 ```
 
-### AC-008-4: [Robust] 工具从流处理中途 I/O 失败恢复
+### AC-008-5: [Robust] 工具从流处理中途 I/O 失败恢复
 
 ```gherkin
 Scenario: [Robust] Disk read fails on one genCodeDesc file
@@ -886,10 +902,10 @@ Scenario: [Testability] Unit tests can set log level programmatically
 | US-005 | 分支与历史条件 | 5 | Typical, Edge |
 | US-006 | 破坏性与边界条件 | 6 | Fault, Misuse, Typical |
 | US-007 | Git 与 SVN 差异 | 5 | Typical, Edge |
-| US-008 | 规模与性能 | 4 | Performance, Edge, Robust |
+| US-008 | 规模与性能 | 5 | Performance, Edge, Robust |
 | US-009 | 算法特定行为 | 12 | Typical, Edge, Fault |
 | US-010 | 诊断与日志 | 7 | Typical, Edge, Observability, Testability |
-| **总计** | | **63 AC** | |
+| **总计** | | **64 AC** | |
 
 ---
 
@@ -900,7 +916,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 3. **RED** — 根据 GIVEN/WHEN/THEN 场景写一个失败测试。
 4. **GREEN** — 实现最小代码让测试通过。
 5. **REFACTOR** — 清理实现。
-6. 当全部 63 个 AC 都通过时，说明你的实现符合 BASE 规范。
+6. 当全部 64 个 AC 都通过时，说明你的实现符合 BASE 规范。
 
 > **不是每个 AC 都适用于每个 fork。** Git-only 条件（rebase、amend、shallow clone）
 > 可以被 SVN fork 跳过。AlgC-specific AC 可以被只实现 AlgA 的 fork 跳过。
@@ -948,7 +964,7 @@ SVN 是 legacy；在协议能力允许范围内支持，但存在已知局限。
 | **US-007（Git vs SVN）** | | | |
 | AC-007-1 ~ AC-007-5 | ✅ | ✅ | 专门记录差异 |
 | **US-008（规模/性能）** | | | |
-| AC-008-1 ~ AC-008-4 | ✅ | ✅ | 同一规模模型适用于二者 |
+| AC-008-1 ~ AC-008-5 | ✅ | ✅ | 同一规模模型适用于二者 |
 
 **图例：** ✅ = 完全适用，⚠️ = 适用但有已知局限，❌ N/A = 不适用（跳过）
 
@@ -961,7 +977,8 @@ SVN 是 legacy；在协议能力允许范围内支持，但存在已知局限。
 | AC-006-1（missing genCodeDesc） | ✅ --onMissing policy | ✅ --onMissing policy | ⚠️ chain break |
 | AC-006-4（clock skew） | ❌ N/A（order-independent） | ❌ N/A（topological order） | ✅ sorts by timestamp |
 | AC-008-1（AlgA perf） | ✅ | ❌ N/A | ❌ N/A |
-| AC-008-2（AlgC perf） | ❌ N/A | ❌ N/A | ✅ |
+| AC-008-2（realistic AlgA workload） | ✅ | ❌ N/A | ❌ N/A |
+| AC-008-3（AlgC perf） | ❌ N/A | ❌ N/A | ✅ |
 | **AC-009-1（rename blame）** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-2（cross-file -C -C）** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-3（VCS unreachable）** | ✅ | ❌ N/A | ❌ N/A |
@@ -978,4 +995,4 @@ SVN 是 legacy；在协议能力允许范围内支持，但存在已知局限。
 > **对于 SVN forks：** 跳过所有 ❌ N/A 行。把 ⚠️ 行作为已知局限记录到你的 fork README。
 >
 > **对于单算法 forks：** 只实现所选算法对应的 AC。
-> 只实现 AlgA 的 fork 可以跳过 AlgC-specific AC（AC-008-2、AC-006-4）。
+> 只实现 AlgA 的 fork 可以跳过 AlgC-specific AC（AC-008-3、AC-006-4）。
