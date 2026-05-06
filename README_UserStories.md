@@ -663,9 +663,23 @@ Scenario: [Typical] AlgA uses origin coordinates for v26.03 lookup after rename 
   AND the live line is counted with genRatio 100
 ```
 
+#### AC-009-5: [Typical] AlgA handles a single in-window commit
+
+```gherkin
+Scenario: [Typical] AlgA computes metrics when exactly one commit is inside the time window
+  GIVEN the only commit with timestamp in [startTime, endTime] is C1
+  AND C1 adds 3 lines, modifies 2 existing lines, deletes 1 line, and leaves 10 pre-window lines untouched
+  AND at endTime the 3 added lines and 2 modified current lines are still alive
+  WHEN aggregateGenCodeDesc runs AlgA
+  THEN fromCommit is C1 and toCommit is C1
+  AND blame includes only the 5 live lines whose origin revision is C1 in the metric denominator
+  AND the deleted line and 10 untouched pre-window lines are excluded from the denominator
+  AND genRatio for those 5 live C1-origin lines is looked up from genCodeDescV26.03(C1)
+```
+
 ### AlgB — Diff Replay
 
-#### AC-009-5: [Typical] Sequential multi-file diff replay in topological order
+#### AC-009-6: [Typical] Sequential multi-file diff replay in topological order
 
 ```gherkin
 Scenario: [Typical] AlgB replays multi-file, multi-hunk diffs in correct commit order
@@ -679,7 +693,7 @@ Scenario: [Typical] AlgB replays multi-file, multi-hunk diffs in correct commit 
   AND the final line-to-origin mapping matches the live file state at endTime
 ```
 
-#### AC-009-6: [Edge] Line-position tracking through chained renames
+#### AC-009-7: [Edge] Line-position tracking through chained renames
 
 ```gherkin
 Scenario: [Edge] AlgB tracks lines across rename chain
@@ -691,7 +705,7 @@ Scenario: [Edge] AlgB tracks lines across rename chain
   AND the rename graph correctly maps v1.py → v2.py → v3.py
 ```
 
-#### AC-009-7: [Fault] One diff in the chain is missing
+#### AC-009-8: [Fault] One diff in the chain is missing
 
 ```gherkin
 Scenario: [Fault] AlgB cannot retrieve diff for commit C3
@@ -705,7 +719,7 @@ Scenario: [Fault] AlgB cannot retrieve diff for commit C3
 
 ### AlgC — Embedded Blame (v26.04)
 
-#### AC-009-8: [Typical] Add/delete operations build correct surviving set
+#### AC-009-9: [Typical] Add/delete operations build correct surviving set
 
 ```gherkin
 Scenario: [Typical] AlgC accumulates surviving lines from add/delete entries
@@ -718,7 +732,7 @@ Scenario: [Typical] AlgC accumulates surviving lines from add/delete entries
   AND each surviving line's genRatio matches its add entry's genCodeDesc
 ```
 
-#### AC-009-9: [Edge] Duplicate add entry for same file+line
+#### AC-009-10: [Edge] Duplicate add entry for same file+line
 
 ```gherkin
 Scenario: [Edge] AlgC encounters duplicate add for the same line position
@@ -730,7 +744,7 @@ Scenario: [Edge] AlgC encounters duplicate add for the same line position
   AND the inconsistency is logged
 ```
 
-#### AC-009-10: [Fault] SUMMARY lineCount mismatches actual DETAIL entries
+#### AC-009-11: [Fault] SUMMARY lineCount mismatches actual DETAIL entries
 
 ```gherkin
 Scenario: [Fault] AlgC detects mismatch between SUMMARY and DETAIL
@@ -851,9 +865,9 @@ Scenario: [Testability] Unit tests can set log level programmatically
 | US-006 | Destructive and Edge Conditions | 6 | Fault, Misuse, Typical |
 | US-007 | Git vs SVN Differences | 5 | Typical, Edge |
 | US-008 | Scale and Performance | 4 | Performance, Edge, Robust |
-| US-009 | Algorithm-Specific Behavior | 10 | Typical, Edge, Fault |
+| US-009 | Algorithm-Specific Behavior | 11 | Typical, Edge, Fault |
 | US-010 | Diagnostics and Logging | 7 | Typical, Edge, Observability, Testability |
-| **Total** | | **61 AC** | |
+| **Total** | | **62 AC** | |
 
 ---
 
@@ -864,7 +878,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 3. **RED** — write a failing test from the GIVEN/WHEN/THEN scenario.
 4. **GREEN** — implement minimal code to pass.
 5. **REFACTOR** — clean up.
-6. When all 61 ACs pass → your implementation is correct per the BASE specification.
+6. When all 62 ACs pass → your implementation is correct per the BASE specification.
 
 > **Not every AC applies to every fork.** Git-only conditions (rebase, amend, shallow clone)
 > can be skipped by SVN forks. AlgC-specific ACs can be skipped by AlgA-only forks.
@@ -930,12 +944,13 @@ SVN is legacy — supported to the extent that the protocol allows, but with kno
 | **AC-009-2 (cross-file -C -C)** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-3 (VCS unreachable)** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-4 (origin-coordinate lookup)** | ✅ | ❌ N/A | ❌ N/A |
-| **AC-009-5 (topological multi-file replay)** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-6 (chained renames)** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-7 (missing diff)** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-8 (surviving set)** | ❌ N/A | ❌ N/A | ✅ |
-| **AC-009-9 (duplicate add)** | ❌ N/A | ❌ N/A | ✅ |
-| **AC-009-10 (SUMMARY mismatch)** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-5 (single in-window commit)** | ✅ | ❌ N/A | ❌ N/A |
+| **AC-009-6 (topological multi-file replay)** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-7 (chained renames)** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-8 (missing diff)** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-9 (surviving set)** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-10 (duplicate add)** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-11 (SUMMARY mismatch)** | ❌ N/A | ❌ N/A | ✅ |
 
 > **For SVN forks:** Skip all ❌ N/A rows. Document ⚠️ rows as known limitations in your fork README.
 >
