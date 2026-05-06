@@ -270,7 +270,7 @@ TC-User-001:
 | 领域 | 必需覆盖 |
 | --- | --- |
 | README_UserGuide 流程 | 维护者可以运行指南中的文档化命令。 |
-| README_UserStories 场景 | 关键验收标准得到可展示的满足。 |
+| README_UserStories_ZH 场景 | 关键验收标准得到可展示的满足。 |
 | 安全 agent 工作流 | 测试可以在 Dev Container 内运行，无需主机特定设置。 |
 | 结果解释 | 用户可以在输出中识别 Weighted、Fully AI、Mostly AI 的值。 |
 | 错误解释 | 用户能从 stderr/log 输出理解常见校验失败。 |
@@ -308,7 +308,7 @@ TC-User-001:
 
 | 来源 | 测试层 |
 | --- | --- |
-| `README_UserStories.md` | CaTDD 的 US/AC 来源；UnitTesting 覆盖原子规则，SysTesting/UserTesting 覆盖完整场景。 |
+| `README_UserStories_ZH.md` | CaTDD 的 US/AC 来源；UnitTesting 覆盖原子规则，SysTesting/UserTesting 覆盖完整场景。 |
 | `README_UserGuide.md` | CaTDD 的用户工作流来源；SysTesting 覆盖 CLI 契约，UserTesting 覆盖文档化工作流。 |
 | `README_Protocol.md` | UnitTesting 覆盖 schema/校验，SysTesting 覆盖真实协议文件。 |
 | `README_AlgABC.md` | UnitTesting 覆盖算法辅助逻辑，SysTesting 覆盖完整算法行为。 |

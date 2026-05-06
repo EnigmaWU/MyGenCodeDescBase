@@ -5,7 +5,7 @@
 
 这个 BASE 的每个 fork 用各自选定的语言（Python / C++ / Rust）和 CLI 规范实现本合约。
 
-- 相关文档：[README_ZH.md](README_ZH.md) · [README_UserStories.md](README_UserStories.md) · [README_AlgABC_ZH.md](README_AlgABC_ZH.md) · [README_Protocol_ZH.md](README_Protocol_ZH.md) · [README_TestGuide_ZH.md](README_TestGuide_ZH.md)
+- 相关文档：[README_ZH.md](README_ZH.md) · [README_UserStories_ZH.md](README_UserStories_ZH.md) · [README_AlgABC_ZH.md](README_AlgABC_ZH.md) · [README_Protocol_ZH.md](README_Protocol_ZH.md) · [README_TestGuide_ZH.md](README_TestGuide_ZH.md)
 
 ---
 
@@ -344,7 +344,7 @@ git diff <parentOfFromCommit>..<toCommit> -- <scope 路径>
 
 ## 5. 校验和错误分类
 
-对应 [README_UserStories.md](README_UserStories.md) US-006：
+对应 [README_UserStories_ZH.md](README_UserStories_ZH.md) US-006：
 
 | 情况 | 参数 | 默认 | 退出码 |
 |---|---|---|---|
@@ -424,4 +424,4 @@ aggregateGenCodeDesc \
     - 12 个组合中哪些已支持（目标是全部 12 个；仅支持 Alg C 的 fork 可以跳过第 1、2、7、8 格）。
     - 每个组合的已知局限（如"Alg B 尚未实现"）。
     - `--onMissing`、`--onDuplicate`、`--onClockSkew` 的默认策略。
-4. [README_UserStories.md](README_UserStories.md) 里的全部 60 条验收标准都是测试目标。
+4. [README_UserStories_ZH.md](README_UserStories_ZH.md) 里的全部 60 条验收标准都是测试目标。
