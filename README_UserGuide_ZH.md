@@ -20,6 +20,13 @@
 
 `commitStart2EndTime.patch` 用来审计时间窗口 diff；JSON 指标只聚合这个 diff 里的存活子集。已删除、已 revert、或来源在窗口之前的行，都不能进入分母。
 
+示例：如果 `startTime=2026-04-01`，`endTime=2026-04-30`，并且分支上对应的 commits 和 `genCodeDescV26.03` 记录分别在 `2026-04-03`、`2026-04-07`、`2026-04-15`，那么：
+
+- `fromCommit` 是 `2026-04-03` 的 commit。
+- `toCommit` 是 `2026-04-15` 的 commit。
+- `commitStart2EndTime.patch` 覆盖这三个 commit 引入的累计变化。
+- JSON 指标只统计这些 commit 新增或修改过、并且当前版本在 `endTime=2026-04-30` 仍然存活的行。
+
 1. **加权模式**：`Σ(genRatio / 100) / totalLines`
 2. **纯 AI 模式**：`count(genRatio == 100) / totalLines`
 3. **主要 AI 模式**：`count(genRatio >= threshold) / totalLines`

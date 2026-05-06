@@ -20,6 +20,13 @@ The aggregate set is the intersection of:
 
 `commitStart2EndTime.patch` audits the window diff; the JSON metrics aggregate only the alive subset of that diff. Deleted, reverted, or pre-window-origin lines must not enter the denominator.
 
+Example: if `startTime=2026-04-01`, `endTime=2026-04-30`, and the branch has matching commits and `genCodeDescV26.03` records on `2026-04-03`, `2026-04-07`, and `2026-04-15`, then:
+
+- `fromCommit` is the `2026-04-03` commit.
+- `toCommit` is the `2026-04-15` commit.
+- `commitStart2EndTime.patch` covers the cumulative change introduced by those three commits.
+- JSON metrics count only lines added or modified by those commits whose current versions are still alive at `endTime=2026-04-30`.
+
 1. **Weighted mode**: `Σ(genRatio / 100) / totalLines`
 2. **Fully AI mode**: `count(genRatio == 100) / totalLines`
 3. **Mostly AI mode**: `count(genRatio >= threshold) / totalLines`
