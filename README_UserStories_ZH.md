@@ -652,9 +652,22 @@ Scenario: [Fault] Remote VCS is down when AlgA runs blame
   AND 工具建议重试或使用 AlgC（无需 VCS 访问）
 ```
 
+#### AC-009-4: [Typical] AlgA 按 blame 来源坐标 join genCodeDesc
+
+```gherkin
+Scenario: [Typical] AlgA uses origin coordinates for v26.03 lookup after rename and line-number shift
+  GIVEN commit C1 在 [startTime, endTime] 内创建 "src/a.py" 第 2 行，并且 genCodeDescV26.03(C1) 中该行 genRatio 为 100
+  AND commit C2 在 endTime 之前把文件改名为 "src/math_utils.py" 并插入 header，使同一条存活文本现在位于当前第 4 行
+  WHEN aggregateGenCodeDesc 在 endTime 运行 AlgA
+  THEN blame 将当前 "src/math_utils.py" 第 4 行解析到来源 revision C1、来源文件 "src/a.py"、来源第 2 行
+  AND genRatio 查找使用 genCodeDescV26.03(C1) DETAIL 中的 "src/a.py" 第 2 行
+  AND 实现不会去 C1 的 genCodeDesc 中查 "src/math_utils.py" 第 4 行
+  AND 这条活行以 genRatio 100 计入
+```
+
 ### AlgB —— Diff 重放
 
-#### AC-009-4: [Typical] 按拓扑顺序重放多文件 diff
+#### AC-009-5: [Typical] 按拓扑顺序重放多文件 diff
 
 ```gherkin
 Scenario: [Typical] AlgB replays multi-file, multi-hunk diffs in correct commit order
@@ -668,7 +681,7 @@ Scenario: [Typical] AlgB replays multi-file, multi-hunk diffs in correct commit 
   AND 最终 line-to-origin 映射匹配 endTime 的活文件状态
 ```
 
-#### AC-009-5: [Edge] 跨重命名链追踪行位置
+#### AC-009-6: [Edge] 跨重命名链追踪行位置
 
 ```gherkin
 Scenario: [Edge] AlgB tracks lines across rename chain
@@ -680,7 +693,7 @@ Scenario: [Edge] AlgB tracks lines across rename chain
   AND rename graph 正确映射 v1.py → v2.py → v3.py
 ```
 
-#### AC-009-6: [Fault] 链中缺失一个 diff
+#### AC-009-7: [Fault] 链中缺失一个 diff
 
 ```gherkin
 Scenario: [Fault] AlgB cannot retrieve diff for commit C3
@@ -694,7 +707,7 @@ Scenario: [Fault] AlgB cannot retrieve diff for commit C3
 
 ### AlgC —— 内嵌 Blame（仅 v26.04）
 
-#### AC-009-7: [Typical] Add/delete 操作构建正确存活集合
+#### AC-009-8: [Typical] Add/delete 操作构建正确存活集合
 
 ```gherkin
 Scenario: [Typical] AlgC accumulates surviving lines from add/delete entries
@@ -707,7 +720,7 @@ Scenario: [Typical] AlgC accumulates surviving lines from add/delete entries
   AND 每个存活行的 genRatio 匹配其 add entry 的 genCodeDesc
 ```
 
-#### AC-009-8: [Edge] 同一 file+line 有重复 add entry
+#### AC-009-9: [Edge] 同一 file+line 有重复 add entry
 
 ```gherkin
 Scenario: [Edge] AlgC encounters duplicate add for the same line position
@@ -719,7 +732,7 @@ Scenario: [Edge] AlgC encounters duplicate add for the same line position
   AND 不一致情况被记录日志
 ```
 
-#### AC-009-9: [Fault] SUMMARY lineCount 与实际 DETAIL entries 不一致
+#### AC-009-10: [Fault] SUMMARY lineCount 与实际 DETAIL entries 不一致
 
 ```gherkin
 Scenario: [Fault] AlgC detects mismatch between SUMMARY and DETAIL
@@ -840,9 +853,9 @@ Scenario: [Testability] Unit tests can set log level programmatically
 | US-006 | 破坏性与边界条件 | 6 | Fault, Misuse, Typical |
 | US-007 | Git 与 SVN 差异 | 5 | Typical, Edge |
 | US-008 | 规模与性能 | 4 | Performance, Edge, Robust |
-| US-009 | 算法特定行为 | 9 | Typical, Edge, Fault |
+| US-009 | 算法特定行为 | 10 | Typical, Edge, Fault |
 | US-010 | 诊断与日志 | 7 | Typical, Edge, Observability, Testability |
-| **总计** | | **60 AC** | |
+| **总计** | | **61 AC** | |
 
 ---
 
@@ -853,7 +866,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 3. **RED** — 根据 GIVEN/WHEN/THEN 场景写一个失败测试。
 4. **GREEN** — 实现最小代码让测试通过。
 5. **REFACTOR** — 清理实现。
-6. 当全部 60 个 AC 都通过时，说明你的实现符合 BASE 规范。
+6. 当全部 61 个 AC 都通过时，说明你的实现符合 BASE 规范。
 
 > **不是每个 AC 都适用于每个 fork。** Git-only 条件（rebase、amend、shallow clone）
 > 可以被 SVN fork 跳过。AlgC-specific AC 可以被只实现 AlgA 的 fork 跳过。
@@ -918,12 +931,13 @@ SVN 是 legacy；在协议能力允许范围内支持，但存在已知局限。
 | **AC-009-1（rename -M）** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-2（cross-file -C -C）** | ✅ | ❌ N/A | ❌ N/A |
 | **AC-009-3（VCS unreachable）** | ✅ | ❌ N/A | ❌ N/A |
-| **AC-009-4（topological multi-file replay）** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-5（chained renames）** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-6（missing diff）** | ❌ N/A | ✅ | ❌ N/A |
-| **AC-009-7（surviving set）** | ❌ N/A | ❌ N/A | ✅ |
-| **AC-009-8（duplicate add）** | ❌ N/A | ❌ N/A | ✅ |
-| **AC-009-9（SUMMARY mismatch）** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-4（origin-coordinate lookup）** | ✅ | ❌ N/A | ❌ N/A |
+| **AC-009-5（topological multi-file replay）** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-6（chained renames）** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-7（missing diff）** | ❌ N/A | ✅ | ❌ N/A |
+| **AC-009-8（surviving set）** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-9（duplicate add）** | ❌ N/A | ❌ N/A | ✅ |
+| **AC-009-10（SUMMARY mismatch）** | ❌ N/A | ❌ N/A | ✅ |
 
 > **对于 SVN forks：** 跳过所有 ❌ N/A 行。把 ⚠️ 行作为已知局限记录到你的 fork README。
 >
