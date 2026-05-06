@@ -75,7 +75,6 @@
 | `--scope` | 按需 | 文件/路径过滤：`A`、`B`、`C` 或 `D`（见 [README_Protocol_ZH.md](README_Protocol_ZH.md) — 范围定义）。 |
 | `--outputDir` | 按需 | 两个输出产物写到的目录（不存在就新建），见 §3。 |
 | `--repoPath` | 无 | **仅 Alg A。** 本地仓库工作副本路径。Alg A 跑 git/svn 时需要。若没提供且 `--repoUrl` 是远端，fork 可自动克隆。 |
-| `--endRev` | `HEAD` | **仅 Alg A。** 执行 blame 时的目标 revision。 |
 | `--commitPatchDir` | 无 | **仅 Alg B。** 预先算好的每个 revision 的 unified diff 文件放这里，用于离线重放，见 §2.4。 |
 | `--blameWhitespace` | `respect` | **仅 Alg A + Git。** `respect` 或 `ignore`（对应 `git blame -w`），见 AC-004-3。 |
 | `--renameDetection` | `basic` | **仅 Git + Alg A/B。** `off` / `basic`（`-M`）/ `aggressive`（`-M -C -C`）。 |
