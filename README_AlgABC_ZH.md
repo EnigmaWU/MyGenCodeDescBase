@@ -34,7 +34,19 @@
 
 ### A：它是什么
 
-算法 A 是**首选的、生产质量的基线方案**。它从 `endTime` 时刻的活文件快照出发，对每一条存活的范围内行运行 `git blame` 或 `svn blame`，用 blame 结果发现哪个版本最后引入了这行的当前文本形态。来源版本时间戳落在 `[startTime, endTime]` 窗口里的行会被计入。对每条计入的行，算法去匹配的逐版本 genCodeDesc v26.03 记录里查 `genRatio`；如果稀疏的 v26.03 `DETAIL` 没有匹配的行条目，则这行按人写/未归因处理，有效 `genRatio=0`。
+算法 A 是**首选的、生产质量的基线方案**。它从 `endTime` 时刻的活文件快照出发，对每一条存活的范围内行运行 `git blame` 或 `svn blame`，用 blame 结果发现哪个版本最后引入了这行的当前文本形态。来源版本时间戳落在 `[startTime, endTime]` 窗口里的行会被计入。
+
+对每条计入的行，算法 A 会把 blame 结果 join 到匹配的逐版本 genCodeDesc v26.03 记录。查找时应该使用 blame 给出的**来源坐标**，而不是直接拿 `endTime` 时的当前文件路径和当前行号去查。因为一行被引入之后，后续可能经历改名，或因为附近插入/删除而漂移到不同的当前行号；但 v26.03 记录描述的是来源版本当时的文件和行位置。
+
+单条活行的 join 契约：
+
+```text
+endTime 的活行
+  -> blame 给出来源 revisionId + 来源文件路径 + 来源行/行范围 + 来源时间戳
+  -> 如果来源时间戳在 [startTime, endTime] 内，加载该来源 revisionId 的 genCodeDescV26.03
+  -> 用来源文件路径 + 来源行/行范围查 DETAIL
+  -> 使用 genRatio/genMethod；如果稀疏 v26.03 没有匹配条目，则有效 genRatio=0
+```
 
 ### A：流程图
 
@@ -45,7 +57,7 @@ flowchart TD
   A3["对存活的范围内行运行 git blame 或 svn blame"]
   A4{"来源时间戳在 [startTime, endTime] 内?"}
   A5["按来源版本找到 v26.03 genCodeDesc 记录"]
-  A6{"DETAIL 有匹配的 lineLocation 或 lineRange?"}
+  A6{"DETAIL 匹配来源文件路径 + 来源行/行范围?"}
   A7["使用记录的 genRatio 和 genMethod"]
   A8["按人写/未归因处理, genRatio=0"]
   A9["汇总 Weighted、Fully AI、Mostly AI 指标"]
@@ -57,6 +69,103 @@ flowchart TD
   A6 -- "是" --> A7 --> A9
   A6 -- "否" --> A8 --> A9
 ```
+
+### A：典型走读例子
+
+理解算法 A 时，可以把它看成**先看活行，而不是先看提交**：先检查 `endTime` 的活快照，对每条活行询问 blame 它来自哪里，再把这个来源 join 到 genCodeDesc。
+
+#### 例 1：只新增一行
+
+窗口前的 `C0` 有：
+
+```python
+def total(items):
+    return sum(items)
+```
+
+`C1` 在 `[startTime, endTime]` 内新增一条仍然存活的行：
+
+```python
+def total(items):
+    return sum(items)
+
+print(total([1, 2, 3]))
+```
+
+`endTime` 的 blame：
+
+```text
+C0  src/a.py:1  def total(items):
+C0  src/a.py:2      return sum(items)
+C1  src/a.py:4  print(total([1, 2, 3]))
+```
+
+算法 A 只保留 `C1` 这一行，加载 `genCodeDescV26.03(C1)`，查 `src/a.py:4`，并使用该条目的 `genRatio`。分母是 `1`。
+
+#### 例 2：修改已有行
+
+`C0` 写了：
+
+```python
+def total(items):
+    return sum(items)
+```
+
+`C1` 在窗口内改写第 2 行：
+
+```python
+def total(items):
+    return sum(items or [])
+```
+
+`endTime` 的 blame：
+
+```text
+C0  src/a.py:1  def total(items):
+C1  src/a.py:2      return sum(items or [])
+```
+
+算法 A 统计当前第 2 行，并查 `genCodeDescV26.03(C1) -> src/a.py:2`。旧的 `C0` 文本已经不存活，所以旧行不参与度量。
+
+#### 例 3：纯改名
+
+`C1` 在窗口内把 `old.py` 改名成 `new.py`，但没有修改文本。
+
+`endTime` 的 blame 通常会穿透改名：
+
+```text
+C0  origin old.py:1  current new.py:1  def total(items):
+C0  origin old.py:2  current new.py:2      return sum(items)
+```
+
+算法 A 看到这些行的来源仍然是 `C0`，不是 `C1`，所以 `C1` 对分母贡献 `0` 行。只改路径不是新的行内容来源。
+
+#### 例 4：当前位置不同于来源位置
+
+`C1` 在窗口内创建 `src/a.py`：
+
+```python
+def total(items):          # C1 line 1
+    return sum(items)      # C1 line 2, genRatio=100
+```
+
+之后，在 `endTime` 之前，`C2` 改名文件并插入 header：
+
+```python
+# math helpers             # current line 1
+
+def total(items):          # current line 3
+    return sum(items)      # current line 4
+```
+
+当前第 4 行的 blame 应该仍然指回 `C1` 的来源行：
+
+```text
+current src/math_utils.py:4
+  -> origin revision C1, origin file src/a.py, origin line 2
+```
+
+算法 A 必须查 `genCodeDescV26.03(C1) -> src/a.py:2`，而不是 `src/math_utils.py:4`。这就是为什么 blame 的来源坐标很重要。
 
 ### A：为什么它行
 
@@ -70,6 +179,7 @@ flowchart TD
 - 需要**活的仓库访问**——运行时必须有本地检出或等价工作副本。
 - 在**非常大的仓库**里 blame 性能可能很慢，文件多、文件大的时候尤其明显。
 - 正确性取决于 VCS blame 的质量——SVN 碰上复杂的 mergeinfo 可能返回不精确的结果。
+- 实现必须用能暴露或重建足够来源坐标的 blame 模式来查 v26.03。如果只有当前文件路径和当前行号，改名和行号漂移场景可能 join 错。
 - 要得到精确归因，每个被计入的来源版本都必须有对应的 v26.03 记录；否则按配置的缺失记录策略处理。
 
 ---
