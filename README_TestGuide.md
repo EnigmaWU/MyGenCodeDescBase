@@ -197,7 +197,7 @@ The patch artifact and JSON metrics use the same window and scope, but they answ
 
 | Concept | Meaning | Required verification |
 | --- | --- | --- |
-| `commitStart2EndTime.patch` | The cumulative diff from just before `startTime` to `endTime`, as defined in [README_UserGuide.md](README_UserGuide.md). | Shows which lines changed in the window and remains auditable as a patch artifact. |
+| `commitStart2EndTime.patch` | The cumulative diff for commits/revisions from `fromCommit >= startTime` through `toCommit <= endTime`, as defined in [README_UserGuide.md](README_UserGuide.md). | Shows which lines changed in the selected window and remains auditable as a patch artifact. |
 | Alive subset of the diff | Lines from that diff whose current versions are still alive at `endTime`. | Defines the JSON metric denominator and excludes deleted, reverted, and pre-window-origin lines. |
 
 Required CaTDD-aligned cases:

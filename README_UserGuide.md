@@ -11,7 +11,7 @@ Each fork of this BASE implements this contract in its chosen language (Python /
 
 ## 1. Overview
 
-`aggregateGenCodeDesc` analyzes code surviving in the repository snapshot at `endTime` and calculates AI involvement using three distinct metrics.
+`aggregateGenCodeDesc` starts from code lines added or modified during `startTime..endTime`, keeps only those whose current version is still alive at `endTime`, and then calculates AI involvement using three distinct metrics.
 
 The aggregate set is the intersection of:
 
@@ -215,10 +215,15 @@ Example (10 in-window live code lines, generated `genRatio = [100,100,100,100,10
 
 ### 3.2 `commitStart2EndTime.patch`
 
-A **single cumulative unified diff** representing the net change from the window's first parent to the window's end revision on `repoBranch`. Equivalent to:
+A **single cumulative unified diff** for the selected revision range on `repoBranch`:
+
+- `fromCommit` = the first commit/revision on `repoBranch` whose timestamp is `>= startTime`.
+- `toCommit` = the last commit/revision on `repoBranch` whose timestamp is `<= endTime`.
+
+The patch represents the net changes introduced by `fromCommit..toCommit`. For Git, the diff command uses the parent of `fromCommit` as the left endpoint so that `fromCommit` itself is included:
 
 ```text
-git diff <revJustBeforeStartTime>..<revAtEndTime> -- <scope paths>
+git diff <parentOfFromCommit>..<toCommit> -- <scope paths>
 ```
 
 - **Format**: standard unified diff (`diff --git ...` / `---` / `+++` / `@@` hunks). Applyable with `git apply` or `patch -p1`.
@@ -419,4 +424,4 @@ aggregateGenCodeDesc \
     - Which of the 12 cells are supported (all 12 is the target; AlgC-only forks may skip cells 1–2, 7–8).
     - Known limitations per cell (e.g. "Alg B is not yet implemented").
     - Policy defaults for `--onMissing`, `--onDuplicate`, `--onClockSkew`.
-4. All 59 acceptance criteria in [README_UserStories.md](README_UserStories.md) are test targets.
+4. All 60 acceptance criteria in [README_UserStories.md](README_UserStories.md) are test targets.

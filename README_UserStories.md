@@ -151,7 +151,7 @@ Scenario: [Typical] v26.03 DETAIL omits manual lines while SUMMARY counts them
 
 ```gherkin
 Scenario: [Typical] Metrics aggregate only the alive subset of the window diff
-  GIVEN a cumulative diff from just before startTime to endTime contains added, modified, and deleted lines
+  GIVEN a cumulative diff for the commit range fromCommit >= startTime through toCommit <= endTime contains added, modified, and deleted lines
   AND the repository snapshot at endTime contains only the surviving current versions of those lines
   WHEN aggregateGenCodeDesc computes the aggregate metrics
   THEN the denominator is the count of lines in (startTime..endTime diff) intersected with (alive at endTime)
