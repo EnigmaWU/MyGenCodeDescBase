@@ -11,7 +11,14 @@ Each fork of this BASE implements this contract in its chosen language (Python /
 
 ## 1. Overview
 
-`aggregateGenCodeDesc` analyzes code surviving in the repository snapshot at `endTime` and calculates AI involvement using three distinct metrics:
+`aggregateGenCodeDesc` analyzes code surviving in the repository snapshot at `endTime` and calculates AI involvement using three distinct metrics.
+
+The aggregate set is the intersection of:
+
+1. code lines added or modified by the cumulative `startTime..endTime` diff, and
+2. code lines still alive in the repository snapshot at `endTime`.
+
+`commitStart2EndTime.patch` audits the window diff; the JSON metrics aggregate only the alive subset of that diff. Deleted, reverted, or pre-window-origin lines must not enter the denominator.
 
 1. **Weighted mode**: `Σ(genRatio / 100) / totalLines`
 2. **Fully AI mode**: `count(genRatio == 100) / totalLines`
@@ -125,7 +132,7 @@ Mapping from metric to protocol fields:
 | `codeAgent` | `"myCodeAgentName"`. |
 | `REPOSITORY.repoURL` / `repoBranch` | Echoed from input arguments. |
 | `REPOSITORY.revisionId` | `"aggregate:<startTime>..<endTime>"` — a synthetic id identifying the window. |
-| `SUMMARY.totalCodeLines` | Denominator — count of all in-window live code lines, including manual/unattributed lines that may be omitted from `DETAIL`. |
+| `SUMMARY.totalCodeLines` | Denominator — count of lines in `(startTime..endTime diff) ∩ (alive at endTime)`, including manual/unattributed lines that may be omitted from `DETAIL`. |
 | `SUMMARY.fullGeneratedCodeLines` | Count of lines with `genRatio == 100` (numerator of *Fully AI*). |
 | `SUMMARY.partialGeneratedCodeLines` | Count of lines with `0 < genRatio < 100`. |
 | `SUMMARY.totalDocLines` / `fullGeneratedDocLines` / `partialGeneratedDocLines` | Same, restricted to doc files (Scope C/D). For code and doc counts, `total >= fullGenerated + partialGenerated`; the difference is manual/unattributed lines with effective `genRatio=0`. |

@@ -147,6 +147,18 @@ Scenario: [Typical] v26.03 DETAIL omits manual lines while SUMMARY counts them
   AND Mostly AI is 80.0% when threshold is 60
 ```
 
+### AC-001-8: [Typical] Aggregate set is window diff intersected with alive code
+
+```gherkin
+Scenario: [Typical] Metrics aggregate only the alive subset of the window diff
+  GIVEN a cumulative diff from just before startTime to endTime contains added, modified, and deleted lines
+  AND the repository snapshot at endTime contains only the surviving current versions of those lines
+  WHEN aggregateGenCodeDesc computes the aggregate metrics
+  THEN the denominator is the count of lines in (startTime..endTime diff) intersected with (alive at endTime)
+  AND deleted or reverted lines in the diff do not contribute to the denominator
+  AND lines alive at endTime but last changed before startTime do not contribute to the denominator
+```
+
 ---
 
 ## US-002: File-Level Conditions
@@ -818,7 +830,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 
 | US | Title | AC Count | Categories Covered |
 |----|-------|----------|--------------------|
-| US-001 | Core Metric Calculation | 7 | Typical, Edge |
+| US-001 | Core Metric Calculation | 8 | Typical, Edge |
 | US-002 | File-Level Conditions | 4 | Typical, Edge |
 | US-003 | Commit-Level Conditions | 6 | Typical, Edge |
 | US-004 | Line-Level Conditions | 6 | Typical, Edge |
@@ -828,7 +840,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 | US-008 | Scale and Performance | 4 | Performance, Edge, Robust |
 | US-009 | Algorithm-Specific Behavior | 9 | Typical, Edge, Fault |
 | US-010 | Diagnostics and Logging | 7 | Typical, Edge, Observability, Testability |
-| **Total** | | **59 AC** | |
+| **Total** | | **60 AC** | |
 
 ---
 
@@ -839,7 +851,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 3. **RED** — write a failing test from the GIVEN/WHEN/THEN scenario.
 4. **GREEN** — implement minimal code to pass.
 5. **REFACTOR** — clean up.
-6. When all 59 ACs pass → your implementation is correct per the BASE specification.
+6. When all 60 ACs pass → your implementation is correct per the BASE specification.
 
 > **Not every AC applies to every fork.** Git-only conditions (rebase, amend, shallow clone)
 > can be skipped by SVN forks. AlgC-specific ACs can be skipped by AlgA-only forks.
@@ -859,7 +871,7 @@ SVN is legacy — supported to the extent that the protocol allows, but with kno
 | AC | Git | SVN | Notes |
 |----|-----|-----|-------|
 | **US-001 (Core Metric)** | | | |
-| AC-001-1 ~ AC-001-7 | ✅ | ✅ | VCS-agnostic — pure math on genRatio values and sparse DETAIL semantics |
+| AC-001-1 ~ AC-001-8 | ✅ | ✅ | VCS-agnostic — metric math, sparse DETAIL semantics, and `(window diff) ∩ (alive at endTime)` aggregation set |
 | **US-002 (File-Level)** | | | |
 | AC-002-1 ~ AC-002-2 (rename) | ✅ | ✅ | Git: heuristic `-M`. SVN: explicit `svn move` — more reliable |
 | AC-002-3 (delete) | ✅ | ✅ | Same behavior |

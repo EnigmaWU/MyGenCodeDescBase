@@ -185,7 +185,33 @@ TC-Sys-001:
 | 仓库行为 | 根据适用情况覆盖 rename、delete、copy、merge、squash、cherry-pick、revert、rebase/force-push。 |
 | Scope 行为 | Scope A/B/C/D 过滤器会一致地改变分母和输出。 |
 
-### 2.3 系统 fixture 策略
+### 2.3 时间窗口 Diff 与存活代码聚合契约
+
+系统测试必须验证：`aggregateGenCodeDesc` 聚合的是时间窗口 diff 里的存活子集：
+
+```text
+aggregate set = (startTime..endTime diff 新增/修改过的行) ∩ (endTime 仍存活的行)
+```
+
+patch 产物和 JSON 指标使用同一个时间窗口和 scope，但回答不同的审计问题：
+
+| 概念 | 含义 | 必需验证 |
+| --- | --- | --- |
+| `commitStart2EndTime.patch` | 如 [README_UserGuide_ZH.md](README_UserGuide_ZH.md) 所定义，从 `startTime` 之前的版本到 `endTime` 的累计 diff。 | 展示窗口内哪些行发生过变化，并作为 patch 产物保持可审计。 |
+| diff 的存活子集 | 这个 diff 中当前版本在 `endTime` 仍然存活的行。 | 定义 JSON 指标分母，并排除已删除、已 revert、以及来源在窗口外的行。 |
+
+必需的 CaTDD 对齐用例：
+
+| TC | 来源追踪 | 预期区分 |
+| --- | --- | --- |
+| `TC-Sys-WindowDiffDeletedFile` | `[@AC-002-3,US-002]` | 已删除行可以作为删除内容出现在窗口 diff 中，但对存活代码度量贡献为零。 |
+| `TC-Sys-WindowDiffRevertedLines` | `[@AC-003-4,US-003]` | 被 revert 的行在窗口历史中可见，但不在 `endTime` 的存活快照中。 |
+| `TC-Sys-PreWindowAliveLineExcluded` | `[@AC-005-1,US-005]` | `startTime` 之前提交的行即使在 `endTime` 仍存活，也不进入窗口内分母。 |
+| `TC-Sys-DiffPatchAndJsonAgreeOnScope` | `[@AC-001-8,US-001]` | `commitStart2EndTime.patch` 和 `genCodeDescV26.03.json` 使用同一个时间窗口和 scope 过滤器，但 JSON 分母只聚合 diff 的存活子集。 |
+
+如果测试只检查 patch 文件存在，这是不够的。它还必须证明 JSON 指标来自 `(startTime..endTime diff) ∩ (endTime 仍存活)`，而不是直接来自原始 added/deleted diff 行，也不是来自仓库里所有存活行。
+
+### 2.4 系统 fixture 策略
 
 每个 fork 应保持 fixture 小，但行为覆盖丰富：
 
@@ -198,7 +224,7 @@ TC-Sys-001:
 
 系统测试可以在运行时生成临时仓库。如果把 fixture 仓库提交进仓库，应保持最小化，并记录它们的生成方式。
 
-### 2.4 系统测试退出标准
+### 2.5 系统测试退出标准
 
 在系统测试证明以下内容之前，fork 不应宣称实现完成：
 

@@ -185,7 +185,33 @@ At minimum, every fork should system test:
 | Repository behavior | Rename, delete, copy, merge, squash, cherry-pick, revert, rebase/force-push conditions where applicable. |
 | Scope behavior | Scope A/B/C/D filters change denominator and output consistently. |
 
-### 2.3 System Fixture Strategy
+### 2.3 Window Diff and Alive Code Aggregation Contract
+
+System tests must verify that `aggregateGenCodeDesc` aggregates the alive subset of the window diff:
+
+```text
+aggregate set = (lines added/modified by startTime..endTime diff) ∩ (lines alive at endTime)
+```
+
+The patch artifact and JSON metrics use the same window and scope, but they answer different audit questions:
+
+| Concept | Meaning | Required verification |
+| --- | --- | --- |
+| `commitStart2EndTime.patch` | The cumulative diff from just before `startTime` to `endTime`, as defined in [README_UserGuide.md](README_UserGuide.md). | Shows which lines changed in the window and remains auditable as a patch artifact. |
+| Alive subset of the diff | Lines from that diff whose current versions are still alive at `endTime`. | Defines the JSON metric denominator and excludes deleted, reverted, and pre-window-origin lines. |
+
+Required CaTDD-aligned cases:
+
+| TC | Source trace | Expected distinction |
+| --- | --- | --- |
+| `TC-Sys-WindowDiffDeletedFile` | `[@AC-002-3,US-002]` | Deleted lines may appear as removals in the window diff, but contribute zero to alive-code metrics. |
+| `TC-Sys-WindowDiffRevertedLines` | `[@AC-003-4,US-003]` | Reverted lines are visible in the window history, but are absent from the alive snapshot at `endTime`. |
+| `TC-Sys-PreWindowAliveLineExcluded` | `[@AC-005-1,US-005]` | A line committed before `startTime` may still be alive at `endTime`, but is excluded from the in-window denominator. |
+| `TC-Sys-DiffPatchAndJsonAgreeOnScope` | `[@AC-001-8,US-001]` | `commitStart2EndTime.patch` and `genCodeDescV26.03.json` use the same window and scope filter, while the JSON denominator aggregates only the alive subset of the diff. |
+
+If a test only checks that the patch file exists, it is not enough. It must also prove the JSON metrics are computed from `(startTime..endTime diff) ∩ (alive at endTime)`, not from raw added/deleted diff lines and not from all alive lines in the repository.
+
+### 2.4 System Fixture Strategy
 
 Each fork should keep fixtures small but behavior-rich:
 
@@ -198,7 +224,7 @@ Each fork should keep fixtures small but behavior-rich:
 
 System tests may generate temporary repositories at runtime. If fixture repos are checked in, keep them minimal and document how they were produced.
 
-### 2.4 System Test Exit Criteria
+### 2.5 System Test Exit Criteria
 
 A fork should not claim implementation completeness until system tests prove:
 

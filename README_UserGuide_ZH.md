@@ -11,7 +11,14 @@
 
 ## 1. 概览
 
-`aggregateGenCodeDesc` 分析 `endTime` 时仓库快照中活着的代码，用三个度量来量化 AI 参与度：
+`aggregateGenCodeDesc` 分析 `endTime` 时仓库快照中活着的代码，用三个度量来量化 AI 参与度。
+
+聚合对象是下面两个集合的交集：
+
+1. 由累计 `startTime..endTime` diff 新增或修改过的代码行；
+2. 在 `endTime` 仓库快照中仍然存活的代码行。
+
+`commitStart2EndTime.patch` 用来审计时间窗口 diff；JSON 指标只聚合这个 diff 里的存活子集。已删除、已 revert、或来源在窗口之前的行，都不能进入分母。
 
 1. **加权模式**：`Σ(genRatio / 100) / totalLines`
 2. **纯 AI 模式**：`count(genRatio == 100) / totalLines`
@@ -125,7 +132,7 @@
 | `codeAgent` | `"aggregateGenCodeDesc"`。 |
 | `REPOSITORY.repoURL` / `repoBranch` | 原样抄自输入参数。 |
 | `REPOSITORY.revisionId` | `"aggregate:<startTime>..<endTime>"` — 标识窗口的合成 id。 |
-| `SUMMARY.totalCodeLines` | 分母——窗口内全部活代码行数，包括可能从 `DETAIL` 省略的人写/未归因行。 |
+| `SUMMARY.totalCodeLines` | 分母——`(startTime..endTime diff) ∩ (endTime 仍存活)` 的行数，包括可能从 `DETAIL` 省略的人写/未归因行。 |
 | `SUMMARY.fullGeneratedCodeLines` | `genRatio == 100` 的行数（*纯 AI* 的分子）。 |
 | `SUMMARY.partialGeneratedCodeLines` | `0 < genRatio < 100` 的行数。 |
 | `SUMMARY.totalDocLines` / `fullGeneratedDocLines` / `partialGeneratedDocLines` | 同上，只统文档文件（Scope C/D）。代码和文档计数都满足 `total >= fullGenerated + partialGenerated`；差值就是有效 `genRatio=0` 的人写/未归因行。 |

@@ -32,6 +32,7 @@
   > **At `endTime`, what percentage of live code lines whose current version was added or modified in `[startTime, endTime]` is attributable to AI generation?**
 
 - The metric is defined on the **live snapshot** at `endTime` — deleted lines do not count, old versions do not count.
+- In set terms: aggregate lines = (`startTime..endTime` diff lines) ∩ (lines alive at `endTime`).
 - The metric supports **three modes**, controlled by a threshold parameter:
 
   | Mode | Threshold | Question it answers | Formula (on in-window live lines) |
