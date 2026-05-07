@@ -180,7 +180,7 @@ TC-Sys-001:
 | Algorithm B | 使用 `commitPatchDir` 和 v26.03 输入进行离线 diff 回放。 |
 | Algorithm C | 使用 v26.04 输入进行内嵌 blame 回放，且不访问活 VCS。 |
 | 输出产物 | 同时生成 `genCodeDescV26.03.json` 和 `commitStart2EndTime.patch`。 |
-| 输出 schema | 聚合 JSON 遵循 v26.03 外壳并包含 `AGGREGATE` 扩展。 |
+| 输出 schema | 聚合 JSON 遵循 v26.03 外壳并包含 `AGGREGATE` 和可选 `TIMING` 扩展。 |
 | 诊断 | 正确输出缺失版本、重复版本、混合版本、时钟偏移和 warning。 |
 | 仓库行为 | 根据适用情况覆盖 rename、delete、copy、merge、squash、cherry-pick、revert、rebase/force-push。 |
 | Scope 行为 | Scope A/B/C/D 过滤器会一致地改变分母和输出。 |

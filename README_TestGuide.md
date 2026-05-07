@@ -180,7 +180,7 @@ At minimum, every fork should system test:
 | Algorithm B | Offline diff replay using `commitPatchDir` for v26.03 input. |
 | Algorithm C | Embedded blame replay using v26.04 input without live VCS access. |
 | Output artifacts | `genCodeDescV26.03.json` and `commitStart2EndTime.patch` are both produced. |
-| Output schema | Aggregate JSON follows the v26.03 envelope plus `AGGREGATE` extensions. |
+| Output schema | Aggregate JSON follows the v26.03 envelope plus `AGGREGATE` and optional `TIMING` extensions. |
 | Diagnostics | Missing revisions, duplicates, mixed versions, clock skew, and warnings are emitted correctly. |
 | Repository behavior | Rename, delete, copy, merge, squash, cherry-pick, revert, rebase/force-push conditions where applicable. |
 | Scope behavior | Scope A/B/C/D filters change denominator and output consistently. |

@@ -148,7 +148,9 @@ Most conditions above apply to both Git and SVN, but some differ significantly:
 
 ### Scale / Performance Conditions
 
-Reference scale: **1K commits × 100 files/commit × 10K lines/file add-or-delete** in `[startTime, endTime]`.
+Current acceptance baseline: AlgC processes about **1 GB** of `genCodeDescV26.04` data, and AlgA is validated on a realistic 60-day multi-branch project (see [README_UserStories.md](README_UserStories.md)).
+
+Stress-envelope model for capacity planning: **1K commits × 100 files/commit × 10K lines/file add-or-delete** in `[startTime, endTime]`.
 
 | Dimension | Value | Derived |
 |---|---|---|
@@ -167,4 +169,4 @@ Reference scale: **1K commits × 100 files/commit × 10K lines/file add-or-delet
 | **I/O** | Network: 10K blame requests. Local disk: fast. Remote VCS: **latency-bound** (10K round trips or batch API). | Network: 1K diff requests. Payload: ~1K × 1M lines × ~50 bytes = **~50 GB** raw diff data over the wire. | Disk: read 1K genCodeDesc files totaling **~200 GB**. Sequential scan — **disk throughput-bound**. SSD: ~200 GB / 2 GB/s ≈ **100 seconds** I/O alone. |
 | **Sorting** | N/A — blame is per-file, order-independent. | Commits must be in topological order. 1K commits — trivial. | Must sort 1K genCodeDescs by `revisionTimestamp`. O(N log N), N=1K — **trivial**. |
 | **Worst case** | 10K files × deep rename chains — blame must trace through renames across 1K commits. `git blame -C -C` is **10× slower**. | 100 files renamed every commit → line-position tracker must follow 100K renames over 1K diffs. State explosion. | 1B set operations + 6 GB hash map. If genCodeDesc files have errors (duplicate keys), surviving set is **silently corrupted**. |
-| **Mitigation** | Parallelize blame (100 concurrent). `git blame --incremental` for streaming. Cache blame results. Skip files unchanged since last run. | Limit window size. Stream diffs. Shard replay by file path. Pre-compute file rename graph. | Stream genCodeDescs in order — don't load all 200 GB at once. Shard surviving set by file path. Use mmap for large JSON. Validate entry counts against SUMMARY. |
+| **Mitigation** | Parallelize blame (100 concurrent). `git blame --incremental` for streaming. Cache blame results. Skip files unchanged since last run. | Limit window size. Stream diffs. Shard replay by file path. Pre-compute file rename graph. | Stream genCodeDescs in order — don't load the full input set at once (1 GB baseline; 200 GB stress envelope). Shard surviving set by file path. Use mmap for large JSON. Validate entry counts against SUMMARY. |

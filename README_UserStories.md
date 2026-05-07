@@ -797,8 +797,8 @@ Scenario: [Fault] AlgC detects mismatch between SUMMARY and DETAIL
 ## US-010: Diagnostics and Logging
 
 AS A tool developer,
-I WANT `aggregateGenCodeDesc` to support `--logLevel` with levels DEBUG, INFO, WARN, ERROR,
-SO THAT I can inspect runtime behavior and diagnose bugs.
+I WANT `aggregateGenCodeDesc` to support `--logLevel` and `--timing`,
+SO THAT I can inspect runtime behavior, diagnose bugs, and understand stage-level runtime cost.
 
 ### AC-010-1: [Typical] Default log level is INFO with load/process/summary phases
 
@@ -891,6 +891,20 @@ Scenario: [Testability] Unit tests can set log level programmatically
   AND no global state leaks between test cases
 ```
 
+### AC-010-8: [Observability] TIMING reports stage durations in seconds
+
+```gherkin
+Scenario: [Observability] Timing output shows clone, blame, and aggregate cost
+  GIVEN aggregateGenCodeDesc is invoked with --timing summary
+  AND AlgA auto-clones a remote Git repository before analysis
+  WHEN the tool completes successfully
+  THEN the aggregate JSON includes a top-level TIMING object
+  AND TIMING includes non-negative second values for totalSeconds, cloneRepoSeconds, checkoutSeconds, loadGenCodeDescSeconds, blameSeconds, aggregateSeconds, and writeOutputSeconds
+  AND totalSeconds is greater than or equal to each individual measured stage
+  AND stages not used by the selected algorithm or access mode are either 0 or listed in TIMING.notRun
+  AND timing output does not change SUMMARY counts, DETAIL entries, AGGREGATE metrics, or commitStart2EndTime.patch content
+```
+
 | US | Title | AC Count | Categories Covered |
 |----|-------|----------|--------------------|
 | US-001 | Core Metric Calculation | 8 | Typical, Edge |
@@ -902,8 +916,8 @@ Scenario: [Testability] Unit tests can set log level programmatically
 | US-007 | Git vs SVN Differences | 5 | Typical, Edge |
 | US-008 | Scale and Performance | 5 | Performance, Edge, Robust |
 | US-009 | Algorithm-Specific Behavior | 12 | Typical, Edge, Fault |
-| US-010 | Diagnostics and Logging | 7 | Typical, Edge, Observability, Testability |
-| **Total** | | **64 AC** | |
+| US-010 | Diagnostics and Logging | 8 | Typical, Edge, Observability, Testability |
+| **Total** | | **65 AC** | |
 
 ---
 
@@ -914,7 +928,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 3. **RED** — write a failing test from the GIVEN/WHEN/THEN scenario.
 4. **GREEN** — implement minimal code to pass.
 5. **REFACTOR** — clean up.
-6. When all 64 ACs pass → your implementation is correct per the BASE specification.
+6. When all 65 ACs pass → your implementation is correct per the BASE specification.
 
 > **Not every AC applies to every fork.** Git-only conditions (rebase, amend, shallow clone)
 > can be skipped by SVN forks. AlgC-specific ACs can be skipped by AlgA-only forks.

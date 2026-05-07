@@ -799,8 +799,8 @@ Scenario: [Fault] AlgC detects mismatch between SUMMARY and DETAIL
 ## US-010: 诊断与日志
 
 AS A 工具开发者,
-I WANT `aggregateGenCodeDesc` 支持 `--logLevel`，并提供 DEBUG、INFO、WARN、ERROR 等级,
-SO THAT 我可以检查运行时行为并诊断问题。
+I WANT `aggregateGenCodeDesc` 支持 `--logLevel` 和 `--timing`,
+SO THAT 我可以检查运行时行为、诊断问题，并理解各阶段运行耗时。
 
 ### AC-010-1: [Typical] 默认日志级别是 INFO，包含加载/处理/汇总阶段
 
@@ -893,6 +893,20 @@ Scenario: [Testability] Unit tests can set log level programmatically
   AND 测试用例之间没有全局状态泄漏
 ```
 
+### AC-010-8: [Observability] TIMING 以秒报告各阶段耗时
+
+```gherkin
+Scenario: [Observability] Timing output shows clone, blame, and aggregate cost
+  GIVEN aggregateGenCodeDesc 以 --timing summary 调用
+  AND AlgA 在分析前自动 clone 一个远端 Git 仓库
+  WHEN 工具成功完成
+  THEN 聚合 JSON 包含顶层 TIMING object
+  AND TIMING 包含 totalSeconds、cloneRepoSeconds、checkoutSeconds、loadGenCodeDescSeconds、blameSeconds、aggregateSeconds 和 writeOutputSeconds 的非负秒数
+  AND totalSeconds 大于或等于每个单独测量阶段
+  AND 所选算法或访问模式未使用的阶段要么为 0，要么列在 TIMING.notRun 中
+  AND timing 输出不会改变 SUMMARY 计数、DETAIL 条目、AGGREGATE 指标或 commitStart2EndTime.patch 内容
+```
+
 | US | 标题 | AC 数量 | 覆盖分类 |
 | --- | --- | --- | --- |
 | US-001 | 核心度量计算 | 8 | Typical, Edge |
@@ -904,8 +918,8 @@ Scenario: [Testability] Unit tests can set log level programmatically
 | US-007 | Git 与 SVN 差异 | 5 | Typical, Edge |
 | US-008 | 规模与性能 | 5 | Performance, Edge, Robust |
 | US-009 | 算法特定行为 | 12 | Typical, Edge, Fault |
-| US-010 | 诊断与日志 | 7 | Typical, Edge, Observability, Testability |
-| **总计** | | **64 AC** | |
+| US-010 | 诊断与日志 | 8 | Typical, Edge, Observability, Testability |
+| **总计** | | **65 AC** | |
 
 ---
 
@@ -916,7 +930,7 @@ Scenario: [Testability] Unit tests can set log level programmatically
 3. **RED** — 根据 GIVEN/WHEN/THEN 场景写一个失败测试。
 4. **GREEN** — 实现最小代码让测试通过。
 5. **REFACTOR** — 清理实现。
-6. 当全部 64 个 AC 都通过时，说明你的实现符合 BASE 规范。
+6. 当全部 65 个 AC 都通过时，说明你的实现符合 BASE 规范。
 
 > **不是每个 AC 都适用于每个 fork。** Git-only 条件（rebase、amend、shallow clone）
 > 可以被 SVN fork 跳过。AlgC-specific AC 可以被只实现 AlgA 的 fork 跳过。

@@ -86,6 +86,7 @@
 | `--blameWhitespace` | `respect` | **仅 Alg A + Git。** `respect` 或 `ignore`（对应 `git blame -w`），见 AC-004-3。 |
 | `--renameDetection` | `basic` | **仅 Git + Alg A/B。** `off` / `basic`（`-M`）/ `aggressive`（`-M -C -C`）。 |
 | `--logLevel` | `Info` | stderr 日志详细程度：`Debug` / `Info` / `Warning` / `Error`，见 §2.5。 |
+| `--timing` | `summary` | 耗时输出策略：`off`、`summary` 或 `detailed`，见 §2.6 和 §3.1 的 `TIMING`。 |
 | `--onMissing` | 算法相关 | 缺失 genCodeDesc 的处理策略，见 §2.2。 |
 | `--onDuplicate` | `reject` | 重复 revisionId 的处理策略，见 §2.2。 |
 | `--onClockSkew` | `abort` | 仅 Alg C 的时钟漂移处理策略，见 §2.2。 |
@@ -112,6 +113,30 @@
 | `Info`（默认） | **文件加载**事件（每个 genCodeDesc / diff 文件的打开、解析、接受或拒绝）、**逐行状态流转**（每行来源查表、Alg C 的 add/delete 集合变化、Alg B 的 diff hunk 行号追踪）和**最终摘要**（分母、三个度量、诊断信息）。 |
 | `Warning` | 只打 warning 和 error（缺 revision、revision 重复、时钟漂移、版本混用、降级结果）。不打任何按文件、按行的内容。 |
 | `Error` | 只打导致处理中止的致命错误。 |
+
+### 2.6 `--timing` 语义
+
+Timing 使用单调 wall-clock 计时，并以非负小数秒输出。Timing 只用于可观测性：绝不能改变指标计算、过滤或行归因。
+
+| 取值 | 行为 |
+| --- | --- |
+| `off` | 聚合 JSON 不输出 `TIMING`，日志也不输出 timing summary。 |
+| `summary`（默认） | 在聚合 JSON 中输出稳定的顶层 `TIMING` object，并在最终日志里输出一条 timing summary。 |
+| `detailed` | 包含 `summary` 的所有内容，并在 stderr 日志里输出 clone/fetch/checkout、blame、diff replay、genCodeDesc loading、aggregation、output writing 等阶段或命令级耗时。 |
+
+标准 `TIMING` 阶段名如下：
+
+| 字段 | 含义 |
+| --- | --- |
+| `totalSeconds` | 参数解析后到成功写完输出或报告 fatal error 的端到端耗时。 |
+| `cloneRepoSeconds` | 自动 clone、fetch 或 checkout 远端仓库的耗时；未使用时为 `0`。 |
+| `checkoutSeconds` | 准备干净 `endTime` 快照或隔离 worktree 的耗时。 |
+| `loadGenCodeDescSeconds` | 发现、读取、解析、校验 genCodeDesc 文件的耗时。 |
+| `blameSeconds` | 运行实时 `git blame` / `svn blame` 命令的耗时。仅 Alg A 使用；Alg B/C 为 `0`。 |
+| `diffSeconds` | 生成或重放 diff/patch 的耗时。 |
+| `aggregateSeconds` | 将行来源 join 到 genCodeDesc 条目并计算聚合指标的耗时。 |
+| `writeOutputSeconds` | 写出 `genCodeDescV26.03.json` 和 `commitStart2EndTime.patch` 的耗时。 |
+| `notRun` | 被所选算法或访问模式跳过的阶段名数组，例如 `cloneRepo`、`blame` 或 `diff`。 |
 
 ---
 
@@ -155,6 +180,7 @@
 | `AGGREGATE.metrics.fullyAI` | `{value, numerator}` — `fullGeneratedCodeLines / totalCodeLines`。 |
 | `AGGREGATE.metrics.mostlyAI` | `{value, numerator, threshold}` — `count(genRatio >= T) / totalCodeLines`。 |
 | `AGGREGATE.diagnostics` | `{missingRevisions[], duplicateRevisions[], clockSkewDetected, warnings[]}`。 |
+| `TIMING` | 当 `--timing != off` 时输出的可选顶层 timing summary：`{totalSeconds, cloneRepoSeconds, checkoutSeconds, loadGenCodeDescSeconds, blameSeconds, diffSeconds, aggregateSeconds, writeOutputSeconds, notRun[]}`。 |
 
 例子（窗口内 10 行活代码，已生成行的 `genRatio = [100,100,100,100,100, 80,80,80, 30]`，另有 1 行省略的人写行，有效 `genRatio=0`，阈值 60）：
 
@@ -213,6 +239,17 @@
       "clockSkewDetected": false,
       "warnings": []
     }
+  },
+  "TIMING": {
+    "totalSeconds": 12.384,
+    "cloneRepoSeconds": 0.0,
+    "checkoutSeconds": 0.0,
+    "loadGenCodeDescSeconds": 1.122,
+    "blameSeconds": 0.0,
+    "diffSeconds": 0.0,
+    "aggregateSeconds": 10.734,
+    "writeOutputSeconds": 0.082,
+    "notRun": ["cloneRepo", "checkout", "blame", "diff"]
   }
 }
 ```
