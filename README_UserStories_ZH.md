@@ -161,6 +161,17 @@ Scenario: [Typical] Metrics aggregate only the alive subset of the window diff
   AND 在 endTime 存活但最后修改时间早于 startTime 的行不计入分母
 ```
 
+### AC-001-9: [Typical] outputDir 写出独立命名的聚合 genCodeDesc 产物
+
+```gherkin
+Scenario: [Typical] Aggregate JSON output uses the aggregated filename
+  GIVEN aggregateGenCodeDesc 以 --outputDir ./out 调用
+  WHEN 工具写出 aggregate JSON 结果
+  THEN JSON 产物命名为 aggregatedGenCodeDescV26.03.json
+  AND 该产物基于 genCodeDescProtoV26.03 JSON 形状
+  AND 工具不会把聚合产物命名为 genCodeDescV26.03.json
+```
+
 ---
 
 ## US-002: 文件级条件
@@ -909,7 +920,7 @@ Scenario: [Observability] Timing output shows clone, blame, and aggregate cost
 
 | US | 标题 | AC 数量 | 覆盖分类 |
 | --- | --- | --- | --- |
-| US-001 | 核心度量计算 | 8 | Typical, Edge |
+| US-001 | 核心度量计算 | 9 | Typical, Edge |
 | US-002 | 文件级条件 | 4 | Typical, Edge |
 | US-003 | 提交级条件 | 6 | Typical, Edge |
 | US-004 | 行级条件 | 6 | Typical, Edge |
@@ -919,7 +930,7 @@ Scenario: [Observability] Timing output shows clone, blame, and aggregate cost
 | US-008 | 规模与性能 | 5 | Performance, Edge, Robust |
 | US-009 | 算法特定行为 | 12 | Typical, Edge, Fault |
 | US-010 | 诊断与日志 | 8 | Typical, Edge, Observability, Testability |
-| **总计** | | **65 AC** | |
+| **总计** | | **66 AC** | |
 
 ---
 
@@ -930,7 +941,7 @@ Scenario: [Observability] Timing output shows clone, blame, and aggregate cost
 3. **RED** — 根据 GIVEN/WHEN/THEN 场景写一个失败测试。
 4. **GREEN** — 实现最小代码让测试通过。
 5. **REFACTOR** — 清理实现。
-6. 当全部 65 个 AC 都通过时，说明你的实现符合 BASE 规范。
+6. 当全部 66 个 AC 都通过时，说明你的实现符合 BASE 规范。
 
 > **不是每个 AC 都适用于每个 fork。** Git-only 条件（rebase、amend、shallow clone）
 > 可以被 SVN fork 跳过。AlgC-specific AC 可以被只实现 AlgA 的 fork 跳过。

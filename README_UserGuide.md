@@ -135,25 +135,25 @@ Standard `TIMING` stage names are:
 | `blameSeconds` | Time spent in live `git blame` / `svn blame` commands. Alg A only; `0` for Alg B/C. |
 | `diffSeconds` | Time spent generating or replaying diffs/patches. |
 | `aggregateSeconds` | Time spent joining line origins to genCodeDesc entries and computing aggregate metrics. |
-| `writeOutputSeconds` | Time spent writing `genCodeDescV26.03.json` and `commitStart2EndTime.patch`. |
+| `writeOutputSeconds` | Time spent writing `aggregatedGenCodeDescV26.03.json` and `commitStart2EndTime.patch`. |
 | `notRun` | Array of stage names skipped by the selected algorithm or access mode, such as `cloneRepo`, `blame`, or `diff`. |
 
 ---
 
 ## 3. Output
 
-`outputDir` receives **two artifacts**:
+When `--outputDir` is provided, `outputDir` receives **two artifacts**:
 
 | File (fixed name) | What it is |
 |---|---|
-| `genCodeDescV26.03.json` | Aggregate result in genCodeDescProtoV26.03-shaped JSON (§3.1). |
+| `aggregatedGenCodeDescV26.03.json` | Aggregate result based on the genCodeDescProtoV26.03 JSON shape (§3.1). |
 | `commitStart2EndTime.patch` | Single cumulative unified diff covering `[startTime, endTime]` on `repoBranch` (§3.2). |
 
 Both files are produced by **all three algorithms** (A / B / C).
 
-### 3.1 `genCodeDescV26.03.json`
+### 3.1 `aggregatedGenCodeDescV26.03.json`
 
-Shape follows **[`Protocols/genCodeDescProtoV26.03.json`](Protocols/genCodeDescProtoV26.03.json)** — same field names, same SUMMARY / DETAIL / REPOSITORY structure. The aggregate result reuses the protocol so downstream consumers that already understand a per-revision genCodeDesc record also understand the aggregate.
+This output is based on **[`Protocols/genCodeDescProtoV26.03.json`](Protocols/genCodeDescProtoV26.03.json)** — same field names, same SUMMARY / DETAIL / REPOSITORY structure. The `aggregated...` filename distinguishes this window-level artifact from a per-revision genCodeDesc record, while preserving compatibility for downstream consumers that already understand v26.03-shaped JSON.
 
 Mapping from metric to protocol fields:
 
@@ -467,4 +467,4 @@ aggregateGenCodeDesc \
     - Which of the 12 cells are supported (all 12 is the target; AlgC-only forks may skip cells 1–2, 7–8).
     - Known limitations per cell (e.g. "Alg B is not yet implemented").
     - Policy defaults for `--onMissing`, `--onDuplicate`, `--onClockSkew`.
-4. All 60 acceptance criteria in [README_UserStories.md](README_UserStories.md) are test targets.
+4. All 66 acceptance criteria in [README_UserStories.md](README_UserStories.md) are test targets.

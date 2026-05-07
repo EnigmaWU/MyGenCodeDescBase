@@ -179,7 +179,7 @@ At minimum, every fork should system test:
 | Algorithm A | Live blame against a local Git repository for v26.03 input. |
 | Algorithm B | Offline diff replay using `commitPatchDir` for v26.03 input. |
 | Algorithm C | Embedded blame replay using v26.04 input without live VCS access. |
-| Output artifacts | `genCodeDescV26.03.json` and `commitStart2EndTime.patch` are both produced. |
+| Output artifacts | `aggregatedGenCodeDescV26.03.json` and `commitStart2EndTime.patch` are both produced. |
 | Output schema | Aggregate JSON follows the v26.03 envelope plus `AGGREGATE` and optional `TIMING` extensions. |
 | Diagnostics | Missing revisions, duplicates, mixed versions, clock skew, and warnings are emitted correctly. |
 | Repository behavior | Rename, delete, copy, merge, squash, cherry-pick, revert, rebase/force-push conditions where applicable. |
@@ -207,7 +207,7 @@ Required CaTDD-aligned cases:
 | `TC-Sys-WindowDiffDeletedFile` | `[@AC-002-3,US-002]` | Deleted lines may appear as removals in the window diff, but contribute zero to alive-code metrics. |
 | `TC-Sys-WindowDiffRevertedLines` | `[@AC-003-4,US-003]` | Reverted lines are visible in the window history, but are absent from the alive snapshot at `endTime`. |
 | `TC-Sys-PreWindowAliveLineExcluded` | `[@AC-005-1,US-005]` | A line committed before `startTime` may still be alive at `endTime`, but is excluded from the in-window denominator. |
-| `TC-Sys-DiffPatchAndJsonAgreeOnScope` | `[@AC-001-8,US-001]` | `commitStart2EndTime.patch` and `genCodeDescV26.03.json` use the same window and scope filter, while the JSON denominator aggregates only the alive subset of the diff. |
+| `TC-Sys-DiffPatchAndJsonAgreeOnScope` | `[@AC-001-8,US-001]` | `commitStart2EndTime.patch` and `aggregatedGenCodeDescV26.03.json` use the same window and scope filter, while the JSON denominator aggregates only the alive subset of the diff. |
 
 If a test only checks that the patch file exists, it is not enough. It must also prove the JSON metrics are computed from `(startTime..endTime diff) ∩ (alive at endTime)`, not from raw added/deleted diff lines and not from all alive lines in the repository.
 

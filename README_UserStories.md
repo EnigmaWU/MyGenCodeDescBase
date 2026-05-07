@@ -159,6 +159,17 @@ Scenario: [Typical] Metrics aggregate only the alive subset of the window diff
   AND lines alive at endTime but last changed before startTime do not contribute to the denominator
 ```
 
+### AC-001-9: [Typical] outputDir writes a distinct aggregate genCodeDesc artifact
+
+```gherkin
+Scenario: [Typical] Aggregate JSON output uses the aggregated filename
+  GIVEN aggregateGenCodeDesc is invoked with --outputDir ./out
+  WHEN the tool writes the aggregate JSON result
+  THEN the JSON artifact is named aggregatedGenCodeDescV26.03.json
+  AND the artifact is based on the genCodeDescProtoV26.03 JSON shape
+  AND the tool does not name the aggregate artifact genCodeDescV26.03.json
+```
+
 ---
 
 ## US-002: File-Level Conditions
@@ -907,7 +918,7 @@ Scenario: [Observability] Timing output shows clone, blame, and aggregate cost
 
 | US | Title | AC Count | Categories Covered |
 |----|-------|----------|--------------------|
-| US-001 | Core Metric Calculation | 8 | Typical, Edge |
+| US-001 | Core Metric Calculation | 9 | Typical, Edge |
 | US-002 | File-Level Conditions | 4 | Typical, Edge |
 | US-003 | Commit-Level Conditions | 6 | Typical, Edge |
 | US-004 | Line-Level Conditions | 6 | Typical, Edge |
@@ -917,7 +928,7 @@ Scenario: [Observability] Timing output shows clone, blame, and aggregate cost
 | US-008 | Scale and Performance | 5 | Performance, Edge, Robust |
 | US-009 | Algorithm-Specific Behavior | 12 | Typical, Edge, Fault |
 | US-010 | Diagnostics and Logging | 8 | Typical, Edge, Observability, Testability |
-| **Total** | | **65 AC** | |
+| **Total** | | **66 AC** | |
 
 ---
 
@@ -928,7 +939,7 @@ Scenario: [Observability] Timing output shows clone, blame, and aggregate cost
 3. **RED** — write a failing test from the GIVEN/WHEN/THEN scenario.
 4. **GREEN** — implement minimal code to pass.
 5. **REFACTOR** — clean up.
-6. When all 65 ACs pass → your implementation is correct per the BASE specification.
+6. When all 66 ACs pass → your implementation is correct per the BASE specification.
 
 > **Not every AC applies to every fork.** Git-only conditions (rebase, amend, shallow clone)
 > can be skipped by SVN forks. AlgC-specific ACs can be skipped by AlgA-only forks.

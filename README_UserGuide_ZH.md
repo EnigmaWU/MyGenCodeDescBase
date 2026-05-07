@@ -135,25 +135,25 @@ Timing 使用单调 wall-clock 计时，并以非负小数秒输出。Timing 只
 | `blameSeconds` | 运行实时 `git blame` / `svn blame` 命令的耗时。仅 Alg A 使用；Alg B/C 为 `0`。 |
 | `diffSeconds` | 生成或重放 diff/patch 的耗时。 |
 | `aggregateSeconds` | 将行来源 join 到 genCodeDesc 条目并计算聚合指标的耗时。 |
-| `writeOutputSeconds` | 写出 `genCodeDescV26.03.json` 和 `commitStart2EndTime.patch` 的耗时。 |
+| `writeOutputSeconds` | 写出 `aggregatedGenCodeDescV26.03.json` 和 `commitStart2EndTime.patch` 的耗时。 |
 | `notRun` | 被所选算法或访问模式跳过的阶段名数组，例如 `cloneRepo`、`blame` 或 `diff`。 |
 
 ---
 
 ## 3. 输出
 
-`outputDir` 里会放 **两个产物**：
+当传入 `--outputDir` 时，`outputDir` 里会放 **两个产物**：
 
 | 文件（固定名称） | 是什么 |
 |---|---|
-| `genCodeDescV26.03.json` | 聚合结果，形状跟 genCodeDescProtoV26.03 一样（§3.1）。 |
+| `aggregatedGenCodeDescV26.03.json` | 基于 genCodeDescProtoV26.03 JSON 形状的聚合结果（§3.1）。 |
 | `commitStart2EndTime.patch` | `repoBranch` 上 `[startTime, endTime]` 的单个累积 unified diff（§3.2）。 |
 
 两个文件 **Alg A / B / C 都会生成**。
 
-### 3.1 `genCodeDescV26.03.json`
+### 3.1 `aggregatedGenCodeDescV26.03.json`
 
-形状跟 **[`Protocols/genCodeDescProtoV26.03.json`](Protocols/genCodeDescProtoV26.03.json)** 一样——字段名同、SUMMARY / DETAIL / REPOSITORY 结构同。聚合结果复用这个协议，这样已经能读版本级 genCodeDesc 的下游工具不用改就能读聚合结果。
+这个输出基于 **[`Protocols/genCodeDescProtoV26.03.json`](Protocols/genCodeDescProtoV26.03.json)**——字段名同、SUMMARY / DETAIL / REPOSITORY 结构同。`aggregated...` 文件名把窗口级聚合产物和单 revision 的 genCodeDesc 记录区分开，同时保持下游工具对 v26.03 形状 JSON 的兼容性。
 
 度量 → 协议字段映射：
 
@@ -467,4 +467,4 @@ aggregateGenCodeDesc \
     - 12 个组合中哪些已支持（目标是全部 12 个；仅支持 Alg C 的 fork 可以跳过第 1、2、7、8 格）。
     - 每个组合的已知局限（如"Alg B 尚未实现"）。
     - `--onMissing`、`--onDuplicate`、`--onClockSkew` 的默认策略。
-4. [README_UserStories_ZH.md](README_UserStories_ZH.md) 里的全部 60 条验收标准都是测试目标。
+4. [README_UserStories_ZH.md](README_UserStories_ZH.md) 里的全部 66 条验收标准都是测试目标。
