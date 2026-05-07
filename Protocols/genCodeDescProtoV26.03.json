@@ -2,17 +2,51 @@
     "_description": "fromCodeAgent(such as HuayanCoder)_toCodeReviewSystem(such as BugLess)",
     "_protocolNameSemantics": "generatedTextDesc covers generated source-code text and generated document text, such as c/cxx source files and md document files.",
     "_summarySemantics": {
-        "totalCodeLines": "Count all non-blank added ('+') code lines in the commit diff, including manual/human-written lines that may be omitted from DETAIL. Do not include deleted or blank lines.",
-        "fullGeneratedCodeLines": "Subset of added code lines whose genRatio is 100.",
-        "partialGeneratedCodeLines": "Subset of added code lines whose genRatio is greater than 0 and less than 100.",
-        "generatedCodeLineInvariant": "totalCodeLines >= fullGeneratedCodeLines + partialGeneratedCodeLines. The difference is manual/unattributed code lines with effective genRatio=0.",
-        "generatedDocLineInvariant": "totalDocLines >= fullGeneratedDocLines + partialGeneratedDocLines. The difference is manual/unattributed document lines with effective genRatio=0."
+        "totalCodeLines [Mandatory]": "Count only the code lines represented by this record. When cannot distinguish code vs doc, all lines count as code lines. NOTE: DETAIL can omit entries with genRatio=0 (manually written code), so totalCodeLines may be greater than DETAIL's codeLines count.",
+        "fullGeneratedCodeLines [Mandatory if totalCodeLines > 0]": "Subset of represented code lines whose genRatio is 100. This value comes from DETAIL entries where genRatio=100.",
+        "partialGeneratedCodeLines [Mandatory if totalCodeLines > 0]": "Subset of represented code lines whose genRatio is greater than 0 and less than 100. This value comes from DETAIL entries where 0<genRatio<100.",
+        "totalDocLines [Optional]": "Total documentation lines. Only required when can distinguish code vs doc.",
+        "fullGeneratedDocLines [Optional if totalDocLines > 0]": "Subset of doc lines whose genRatio is 100.",
+        "partialGeneratedDocLines [Optional if totalDocLines > 0]": "Subset of doc lines whose genRatio is greater than 0 and less than 100."
     },
     "_detailSemantics": {
-        "model": "SPARSE SNAPSHOT - DETAIL records AI-attributed lines (genRatio > 0). Manual/unattributed lines with effective genRatio=0 may be omitted.",
-        "omittedManualLine": "If a live added line is counted by SUMMARY.totalCodeLines but has no matching lineLocation or lineRange in DETAIL, consumers treat it as genRatio=0 for metrics and may label it Manual/Unattributed if they materialize the omitted line.",
-        "lineLocation": "A 1-based line number in the file content after REPOSITORY.revisionId has been applied.",
-        "lineRange": "A lineRange represents every 1-based line number N where from <= N <= to, and every line in the range shares the same genRatio and genMethod."
+        "DETAIL[] representation": "Lists code/doc lines that were identified/processed by the codeAgent. Lines with genRatio=0 (manually written) MAY be omitted from DETAIL to save space.",
+        "SUMMARY-DETAIL relationship": "SUMMARY.totalCodeLines >= total lines in DETAIL.codeLines (manually written lines with genRatio=0 may be omitted). The generation statistics in SUMMARY must match the detailed counts in DETAIL."
+    },
+    "_linePositionSemantics": {
+        "lineLocation": "Int64 - Single line position (e.g., line 15). Used when representing a single code line.",
+        "lineRange": "Object - Continuous line range (e.g., from line 20 to 26). Used when representing multiple consecutive lines. Contains 'from' and 'to' fields, both inclusive.",
+        "OR Rule": "Each codeLine/docLine entry MUST provide EXACTLY ONE of lineLocation OR lineRange. Providing both or neither is invalid.",
+        "Storage Rule": "Only the valid field is stored. Null values are NOT stored in the serialized JSON."
+    },
+    "_fiedldsRequired": {
+        "protocolName": "Mandatory",
+        "protocolVersion": "Mandatory",
+        "codeAgent": "Mandatory",
+        "SUMMARY": "Mandatory",
+        "SUMMARY.totalCodeLines": "Mandatory",
+        "SUMMARY.fullGeneratedCodeLines": "Mandatory if totalCodeLines > 0",
+        "SUMMARY.partialGeneratedCodeLines": "Mandatory if totalCodeLines > 0",
+        "SUMMARY.totalDocLines": "Optional",
+        "SUMMARY.fullGeneratedDocLines": "Optional if totalDocLines > 0",
+        "SUMMARY.partialGeneratedDocLines": "Optional if totalDocLines > 0",
+        "DETAIL": "Mandatory",
+        "DETAIL[].fileName": "Mandatory",
+        "DETAIL[].codeLines": "Optional (at least one of codeLines/docLines)",
+        "DETAIL[].codeLines[].lineLocation": "Optional (OR lineRange, exactly one required)",
+        "DETAIL[].codeLines[].lineRange": "Optional (OR lineLocation, exactly one required)",
+        "DETAIL[].codeLines[].genRatio": "Mandatory",
+        "DETAIL[].codeLines[].genMethod": "Mandatory",
+        "DETAIL[].docLines": "Optional (at least one of codeLines/docLines)",
+        "DETAIL[].docLines[].lineLocation": "Optional (OR lineRange, exactly one required)",
+        "DETAIL[].docLines[].lineRange": "Optional (OR lineLocation, exactly one required)",
+        "DETAIL[].docLines[].genRatio": "Mandatory",
+        "DETAIL[].docLines[].genMethod": "Mandatory",
+        "REPOSITORY": "Mandatory",
+        "REPOSITORY.vcsType": "Optional",
+        "REPOSITORY.repoURL": "Mandatory",
+        "REPOSITORY.repoBranch": "Mandatory",
+        "REPOSITORY.revisionId": "Mandatory"
     },
 
     "protocolName": "generatedTextDesc",
